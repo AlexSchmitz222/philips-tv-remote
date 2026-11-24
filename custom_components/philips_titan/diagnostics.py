@@ -12,7 +12,10 @@ from homeassistant.core import HomeAssistant
 
 from .coordinator import TitanConfigEntry
 
-TO_REDACT = {CONF_PASSWORD, CONF_USERNAME, CONF_MAC, CONF_HOST, "serial", "mac", "ip"}
+TO_REDACT = {
+    CONF_PASSWORD, CONF_USERNAME, CONF_MAC, CONF_HOST, "serial", "mac", "ip",
+    "mqtt_username", "mqtt_password",
+}
 
 
 async def async_get_config_entry_diagnostics(
@@ -24,7 +27,7 @@ async def async_get_config_entry_diagnostics(
     return {
         "entry": {
             "data": async_redact_data(dict(entry.data), TO_REDACT),
-            "options": dict(entry.options),
+            "options": async_redact_data(dict(entry.options), TO_REDACT),
         },
         "system_info": async_redact_data(coordinator.system_info, TO_REDACT),
         "state": async_redact_data(asdict(data), TO_REDACT) if data else None,
@@ -34,6 +37,7 @@ async def async_get_config_entry_diagnostics(
         if coordinator.update_interval
         else None,
         "lounge_hs": coordinator.lounge_hs,
+        "mqtt": {"enabled": bool(entry.options.get("mqtt_username")), "connected": coordinator.mqtt_connected},
         "client": {
             "min_interval": tv.min_interval,
             "write_interval": tv.write_interval,

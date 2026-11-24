@@ -27,6 +27,9 @@ from homeassistant.core import callback
 from homeassistant.helpers.device_registry import format_mac
 
 from .const import (
+    CONF_MQTT_PASSWORD,
+    CONF_MQTT_PUSH,
+    CONF_MQTT_USERNAME,
     DEFAULT_SCAN_INTERVAL,
     DOMAIN,
     LOGGER,
@@ -203,10 +206,25 @@ class TitanConfigFlow(ConfigFlow, domain=DOMAIN):
 
 
 class TitanOptionsFlow(OptionsFlow):
+    """Polling interval and the opt-in MQTT push (second pairing with PIN)."""
+
+    def __init__(self) -> None:
+        self._options: dict[str, Any] = {}
+        self._pairing: Any = None  # titan.mqtt.MqttPairing while waiting for the PIN
+
     async def async_step_init(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
-        if user_input is not None:
-            return self.async_create_entry(data=user_input)
         opts = self.config_entry.options
+        if user_input is not None:
+            self._options = {**opts, **user_input}
+            paired = bool(opts.get(CONF_MQTT_USERNAME))
+            if user_input[CONF_MQTT_PUSH] and not paired:
+                return await self.async_step_mqtt_pair()
+            if not user_input[CONF_MQTT_PUSH]:
+                # opting out discards the MQTT credentials
+                self._options.pop(CONF_MQTT_USERNAME, None)
+                self._options.pop(CONF_MQTT_PASSWORD, None)
+            return self.async_create_entry(data=self._options)
+
         return self.async_show_form(
             step_id="init",
             data_schema=vol.Schema(
@@ -217,6 +235,58 @@ class TitanOptionsFlow(OptionsFlow):
                     ): vol.All(
                         vol.Coerce(int), vol.Range(min=MIN_SCAN_INTERVAL, max=MAX_SCAN_INTERVAL)
                     ),
+                    vol.Required(
+                        CONF_MQTT_PUSH, default=bool(opts.get(CONF_MQTT_USERNAME))
+                    ): bool,
                 }
             ),
+        )
+
+    async def _start_mqtt_pairing(self) -> None:
+        from .titan.mqtt import MqttPairing
+
+        await self._close_pairing()
+        pairing = MqttPairing(self.config_entry.data[CONF_HOST])
+        await self.hass.async_add_executor_job(pairing.start)  # TV shows a PIN
+        self._pairing = pairing
+
+    async def _close_pairing(self) -> None:
+        if self._pairing is not None:
+            await self.hass.async_add_executor_job(self._pairing.close)
+            self._pairing = None
+
+    async def async_step_mqtt_pair(
+        self, user_input: dict[str, Any] | None = None
+    ) -> ConfigFlowResult:
+        from .titan.mqtt import TitanMqttError
+
+        errors: dict[str, str] = {}
+        if user_input is None:
+            try:
+                await self._start_mqtt_pairing()
+            except TitanMqttError as err:
+                LOGGER.warning("MQTT pairing could not start: %s", err)
+                errors["base"] = "mqtt_failed"
+        else:
+            try:
+                username, password = await self.hass.async_add_executor_job(
+                    self._pairing.finish, user_input[CONF_PIN]
+                )
+            except TitanMqttError as err:
+                LOGGER.info("MQTT pairing failed: %s – requesting a new PIN", err)
+                errors["base"] = "invalid_pin"
+                try:
+                    await self._start_mqtt_pairing()
+                except TitanMqttError:
+                    errors["base"] = "mqtt_failed"
+            else:
+                await self._close_pairing()
+                self._options[CONF_MQTT_USERNAME] = username
+                self._options[CONF_MQTT_PASSWORD] = password
+                return self.async_create_entry(data=self._options)
+
+        return self.async_show_form(
+            step_id="mqtt_pair",
+            data_schema=vol.Schema({vol.Required(CONF_PIN): str}),
+            errors=errors,
         )

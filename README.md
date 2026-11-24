@@ -35,6 +35,11 @@ die feste Farbe erneut, weil der Fernseher sonst seine Menüfarbe zeigt.
    Der Fernseher muss an sein. IP eingeben und die PIN eintippen, die der Fernseher anzeigt.
    Die MAC-Adresse für Wake-on-LAN wird automatisch ermittelt.
 
+**Optional – Sofort-Status per MQTT:** Unter Integration → *Konfigurieren* das Häkchen
+„Ein/Aus und Eingangswechsel sofort per MQTT“ setzen. Der Fernseher zeigt eine zweite PIN (er nennt das
+„Titan OS App“). Danach meldet er Standby und Wechsel zwischen Startbildschirm und Quelle sofort, statt erst bei
+der nächsten Abfrage. Häkchen entfernen verwirft die Kopplung. Nutzt den MQTT-Dienst des Fernsehers (Port 8883).
+
 **Wichtig:** Andere Integrationen, die denselben Fernseher abfragen (`philips_js`,
 `ha-philips-titanos`), deaktivieren. Parallele Abfragen erhöhen die Last und damit
 das Risiko, dass die API hängen bleibt.

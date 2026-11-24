@@ -81,12 +81,24 @@
       "init": {
         "title": "Options",
         "data": {
-          "scan_interval": "Polling interval (seconds)"
+          "scan_interval": "Polling interval (seconds)",
+          "mqtt_push": "Instant on/off and input changes via MQTT (second pairing, PIN on the TV)"
         },
         "data_description": {
           "scan_interval": "How often the TV is asked for its state (2–300 s). Two requests per poll."
         }
+      },
+      "mqtt_pair": {
+        "title": "MQTT pairing",
+        "description": "The TV now shows a PIN (it calls this the \"Titan OS app\"). Enter it here.",
+        "data": {
+          "pin": "PIN"
+        }
       }
+    },
+    "error": {
+      "mqtt_failed": "Could not reach the TV's MQTT service (port 8883). Is the TV on?",
+      "invalid_pin": "Wrong PIN. A new PIN is now shown on the TV."
     }
   }
 }

@@ -14,3 +14,10 @@ MAX_SCAN_INTERVAL = 300
 
 # How long after Wake-on-LAN before the first check (TV boot time).
 WAKE_REFRESH_DELAY = 15
+
+# Opt-in: Titan OS MQTT push (second pairing) for instant power/input changes.
+CONF_MQTT_PUSH = "mqtt_push"
+CONF_MQTT_USERNAME = "mqtt_username"
+CONF_MQTT_PASSWORD = "mqtt_password"
+# state/power values that mean "not on"
+MQTT_OFF_STATES = ("standby", "semi-standby", "off")

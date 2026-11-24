@@ -13,7 +13,7 @@ from typing import Any
 
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import CONF_MAC, CONF_SCAN_INTERVAL
-from homeassistant.core import HomeAssistant
+from homeassistant.core import HomeAssistant, callback
 from homeassistant.exceptions import ConfigEntryAuthFailed
 from homeassistant.helpers.debounce import Debouncer
 from homeassistant.helpers.event import async_call_later
@@ -23,6 +23,7 @@ from .const import (
     DEFAULT_SCAN_INTERVAL,
     DOMAIN,
     LOGGER,
+    MQTT_OFF_STATES,
     WAKE_REFRESH_DELAY,
 )
 from .titan import AmbilightState, TitanTV, Volume
@@ -67,6 +68,9 @@ class TitanCoordinator(DataUpdateCoordinator[TitanData]):
         self._context: str | None = None
         self.system_info: dict[str, str | None] = {}
         self._layout_loaded = False
+        # optional MQTT push (see handle_push)
+        self.mqtt_connected = False
+        self._push_power: str | None = None
 
     async def _load_layout(self) -> None:
         """Detect the Ambilight menu layout once (one GET). Raises
@@ -88,7 +92,38 @@ class TitanCoordinator(DataUpdateCoordinator[TitanData]):
         except TitanError as err:
             LOGGER.debug("No system info (TV off?): %s", err)
 
+    @property
+    def push_says_off(self) -> bool:
+        """MQTT reported standby. Trusted only while the connection is up:
+        right after switching off, JointSpace still answers for a few seconds."""
+        return self.mqtt_connected and self._push_power in MQTT_OFF_STATES
+
+    @callback
+    def handle_mqtt_connection(self, connected: bool) -> None:
+        self.mqtt_connected = connected
+        if not connected:
+            self._push_power = None
+
+    @callback
+    def handle_push(self, topic: str, payload: dict[str, Any]) -> None:
+        """Push message from the TV (event loop). Never sends anything itself
+        except a normal, debounced refresh."""
+        if topic == "state/power":
+            power = payload.get("power")
+            self._push_power = power
+            LOGGER.debug("MQTT state/power: %s", power)
+            if power in MQTT_OFF_STATES:
+                if self.data is None or self.data.on:
+                    self.async_set_updated_data(TitanData(on=False))
+            elif power == "on" and not (self.data and self.data.on):
+                self.hass.async_create_task(self.async_request_refresh())
+        elif topic == "channels/state" and self.data and self.data.on:
+            # home screen <-> app/source: read the input right away
+            self.hass.async_create_task(self.async_request_refresh())
+
     async def _async_update_data(self) -> TitanData:
+        if self.push_says_off:
+            return TitanData(on=False)
         try:
             if not self._layout_loaded:
                 await self._load_layout()
