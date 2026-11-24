@@ -11,8 +11,11 @@ sind (siehe [docs/api.md](docs/api.md)), und hält immer einen Mindestabstand zw
 | `light.…_ambilight` | Ein/Aus, Effekte (AI, Standard, Sports, Cinema, Game, Lumina, Party, Rhythm, Fixed colour), Farbe, Helligkeit (gilt pro Stil) |
 | `media_player.…` | Ein (Wake-on-LAN) / Standby, Lautstärke setzen/±, Stummschalten, Play/Pause/Stop/Weiter/Zurück (Tasten, per HDMI-CEC auch an angeschlossene Geräte) |
 | `number.…_volume` | Lautstärke in den Stufen des Fernsehers (0–60); der Media Player zeigt Prozent |
+| `sensor.…_ambilight_colour` | optional (Option „Ambilight-Farben auslesen“): Durchschnittsfarbe der LEDs als `#rrggbb`, Attribut `rgb_color` – z. B. damit andere Lampen dem Bild folgen |
 | `sensor.…_input` | aktueller Eingang: Startbildschirm/Web-Apps, Satellit, TV, HDMI/Extension, andere App; Rohwerte als Attribute |
 | `number.…_ambilight_saturation` | Ambilight-Sättigung −2 … +2 (Geräteeinstellung) |
+| Senderwahl | `media_player.play_media` mit `media_content_type: channel`, `media_content_id: "12"` (Zifferntasten) |
+| Diagnose | Gerät → „Diagnose herunterladen“ (ohne Zugangsdaten, MAC, IP, Seriennummer) |
 | `remote.…_remote` | Tasten senden (`remote.send_command`, z. B. `Home`, `CursorDown`, `Confirm`) |
 
 Der Zustand wird alle 5 s (einstellbar 2–300 s) mit drei Leseanfragen abgefragt. Schreibbefehle haben
@@ -36,6 +39,13 @@ die feste Farbe erneut, weil der Fernseher sonst seine Menüfarbe zeigt.
 **Wichtig:** Andere Integrationen, die denselben Fernseher abfragen (`philips_js`,
 `ha-philips-titanos`), deaktivieren. Parallele Abfragen erhöhen die Last und damit
 das Risiko, dass die API hängen bleibt.
+
+## Releases
+Versionen stehen in [CHANGELOG.md](CHANGELOG.md). Neue Version:
+1. `version` in `custom_components/philips_titan/manifest.json` (und `pyproject.toml`) erhöhen,
+   Abschnitt in `CHANGELOG.md` ergänzen, committen.
+2. `git tag v0.2.0 && git push && git push --tags` – der Workflow `release.yml` prüft, dass Tag und
+   Manifest übereinstimmen, und legt das GitHub-Release an. HACS bietet dann diese Version an.
 
 ## Entwicklung
 ```bash

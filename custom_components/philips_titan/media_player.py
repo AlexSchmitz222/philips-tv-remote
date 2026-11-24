@@ -2,16 +2,21 @@
 
 from __future__ import annotations
 
+from typing import Any
+
 from homeassistant.components.media_player import (
     MediaPlayerDeviceClass,
     MediaPlayerEntity,
     MediaPlayerEntityFeature,
     MediaPlayerState,
+    MediaType,
 )
+from homeassistant.exceptions import ServiceValidationError
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 
 from .coordinator import TitanConfigEntry, TitanCoordinator
+from .const import DOMAIN
 from .entity import LatestCommand, TitanEntity, tv_command
 
 BASE_FEATURES = (
@@ -24,6 +29,7 @@ BASE_FEATURES = (
     | MediaPlayerEntityFeature.STOP
     | MediaPlayerEntityFeature.NEXT_TRACK
     | MediaPlayerEntityFeature.PREVIOUS_TRACK
+    | MediaPlayerEntityFeature.PLAY_MEDIA
 )
 
 # Playback is controlled with remote keys. The API does not report whether
@@ -140,3 +146,14 @@ class TitanMediaPlayer(TitanEntity, MediaPlayerEntity):
     @tv_command
     async def async_media_previous_track(self) -> None:
         await self.coordinator.tv.send_key(MEDIA_KEYS["previous"])
+
+    @tv_command
+    async def async_play_media(self, media_type: str, media_id: str, **kwargs: Any) -> None:
+        """media_content_type "channel", media_content_id "12" -> digit keys."""
+        if media_type != MediaType.CHANNEL or not str(media_id).strip().isdigit():
+            raise ServiceValidationError(
+                translation_domain=DOMAIN,
+                translation_key="only_channel_numbers",
+                translation_placeholders={"type": str(media_type), "id": str(media_id)},
+            )
+        await self.coordinator.tv.send_channel_number(media_id)

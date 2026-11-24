@@ -1,4 +1,4 @@
-"""Current input / activity (GET context)."""
+"""Current input (GET context) and, optionally, the Ambilight colour."""
 
 from __future__ import annotations
 
@@ -23,7 +23,10 @@ OPTIONS = [*dict.fromkeys(CONTEXT_STATES.values()), "unknown"]
 async def async_setup_entry(
     hass: HomeAssistant, entry: TitanConfigEntry, async_add_entities: AddConfigEntryEntitiesCallback
 ) -> None:
-    async_add_entities([TitanInputSensor(entry.runtime_data)])
+    entities: list[SensorEntity] = [TitanInputSensor(entry.runtime_data)]
+    if entry.runtime_data.read_colors:
+        entities.append(AmbilightColorSensor(entry.runtime_data))
+    async_add_entities(entities)
 
 
 class TitanInputSensor(TitanEntity, SensorEntity):
@@ -54,3 +57,35 @@ class TitanInputSensor(TitanEntity, SensorEntity):
     def extra_state_attributes(self) -> dict[str, str | None]:
         # everything the TV reports, so unmapped cases can be identified
         return {k: v for k, v in self._raw.items()}
+
+
+class AmbilightColorSensor(TitanEntity, SensorEntity):
+    """Average colour the LEDs show, e.g. to let other lights follow the picture.
+
+    State is ``#rrggbb``; ``rgb_color`` can be passed to light.turn_on.
+    """
+
+    _attr_translation_key = "ambilight_color"
+
+    def __init__(self, coordinator: TitanCoordinator) -> None:
+        super().__init__(coordinator, "ambilight_color")
+
+    @property
+    def _colors(self):
+        return self.coordinator.data.colors if self.coordinator.data else None
+
+    @property
+    def available(self) -> bool:
+        return super().available and self.tv_on
+
+    @property
+    def native_value(self) -> str | None:
+        c = self._colors
+        return "#{:02x}{:02x}{:02x}".format(*c.average) if c and c.average else None
+
+    @property
+    def extra_state_attributes(self) -> dict:
+        c = self._colors
+        if not c or not c.average:
+            return {}
+        return {"rgb_color": list(c.average), **{side: list(v) for side, v in c.sides.items()}}

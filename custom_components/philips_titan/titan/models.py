@@ -54,6 +54,37 @@ class AmbilightState:
 
 
 @dataclass
+class AmbilightColors:
+    """Colours the LEDs currently show (GET ambilight/processed)."""
+
+    average: tuple[int, int, int] | None          # over all LEDs
+    sides: dict[str, tuple[int, int, int]]        # per side (left/top/right)
+    leds: int
+
+    @classmethod
+    def from_processed(cls, data: dict) -> "AmbilightColors":
+        all_px: list[tuple[int, int, int]] = []
+        sides: dict[str, tuple[int, int, int]] = {}
+        for layer in (data or {}).values():
+            if not isinstance(layer, dict):
+                continue
+            for side, pixels in layer.items():
+                px = [
+                    (p["r"], p["g"], p["b"])
+                    for p in (pixels or {}).values()
+                    if isinstance(p, dict) and {"r", "g", "b"} <= p.keys()
+                ]
+                if px:
+                    sides[side] = _mean(px)
+                    all_px += px
+        return cls(average=_mean(all_px) if all_px else None, sides=sides, leds=len(all_px))
+
+
+def _mean(px: list[tuple[int, int, int]]) -> tuple[int, int, int]:
+    return tuple(round(sum(p[i] for p in px) / len(px)) for i in range(3))  # type: ignore[return-value]
+
+
+@dataclass
 class Volume:
     current: int
     muted: bool
@@ -71,6 +102,7 @@ KEYS = (
     "CursorUp", "CursorDown", "CursorLeft", "CursorRight", "Confirm", "Back",
     "Home", "Options", "Info", "Find", "Adjust", "Source", "WatchTV",
     "ChannelStepUp", "ChannelStepDown",
+    # Digits: untested on Titan OS. On HDMI they may be forwarded via CEC.
     "Digit0", "Digit1", "Digit2", "Digit3", "Digit4",
     "Digit5", "Digit6", "Digit7", "Digit8", "Digit9", "Dot",
     "PlayPause", "Play", "Pause", "Stop", "Rewind", "FastForward",

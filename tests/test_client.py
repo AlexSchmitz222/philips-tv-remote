@@ -248,3 +248,28 @@ def test_writes_spaced_further_than_reads(fake):
     # the read in between did not wait for the write interval
     i_read = kinds.index("r", 1)
     assert t[i_read] - t[i_read - 1] < 0.2
+
+
+def test_ambilight_colors_from_real_dump_shape():
+    from philips_titan.models import AmbilightColors
+    data = {"layer1": {
+        "left": {"0": {"r": 255, "g": 0, "b": 0}, "1": {"r": 255, "g": 0, "b": 0}},
+        "top": {"0": {"r": 0, "g": 0, "b": 255}},
+        "right": {"0": {"r": 0, "g": 255, "b": 0}},
+        "bottom": {},
+    }}
+    c = AmbilightColors.from_processed(data)
+    assert c.leds == 4
+    assert c.sides == {"left": (255, 0, 0), "top": (0, 0, 255), "right": (0, 255, 0)}
+    assert c.average == (128, 64, 64)
+    assert AmbilightColors.from_processed({}).average is None
+
+
+def test_channel_number_keys(fake):
+    async def go():
+        tv = make_tv(fake)
+        await tv.send_channel_number("102")
+        with pytest.raises(ValueError):
+            await tv.send_channel_number("1a")
+    run(go())
+    assert [b["key"] for m, p, b in fake.log if p == "input/key"] == ["Digit1", "Digit0", "Digit2"]

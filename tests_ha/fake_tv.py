@@ -86,6 +86,11 @@ class FakeTV:
             except TimeoutError:
                 raise httpx.ReadTimeout("idle", request=request) from None
             return httpx.Response(200, json=self._notify_state())
+        if path == "ambilight/processed":
+            return httpx.Response(200, json={"layer1": {
+                "left": {"0": {"r": 255, "g": 0, "b": 0}, "1": {"r": 255, "g": 0, "b": 0}},
+                "top": {"0": {"r": 0, "g": 0, "b": 255}},
+                "right": {"0": {"r": 0, "g": 255, "b": 0}}, "bottom": {}}})
         if path == "context":
             return httpx.Response(200, json={"level1": self.context, "level2": "NA", "level3": "NA", "data": "NA"})
         if path == "network/devices":

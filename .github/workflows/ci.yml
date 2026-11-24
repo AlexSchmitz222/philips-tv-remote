@@ -1,0 +1,35 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.14"
+      - name: Install
+        run: pip install pytest-homeassistant-custom-component -e .
+      - name: Bundled library matches src/
+        run: ./scripts/bundle_lib.sh && git diff --exit-code custom_components/philips_titan/titan
+      - name: Tests (library + integration, no TV needed)
+        run: pytest -q tests tests_ha
+
+  hassfest:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: home-assistant/actions/hassfest@master
+
+  hacs:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: hacs/action@main
+        with:
+          category: integration
+          # the icon ships in brand/ (served by HA itself), not in the brands repo
+          ignore: brands

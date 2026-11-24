@@ -27,6 +27,7 @@ from homeassistant.core import callback
 from homeassistant.helpers.device_registry import format_mac
 
 from .const import (
+    CONF_AMBILIGHT_COLORS,
     DEFAULT_SCAN_INTERVAL,
     DOMAIN,
     LOGGER,
@@ -206,14 +207,20 @@ class TitanOptionsFlow(OptionsFlow):
     async def async_step_init(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
         if user_input is not None:
             return self.async_create_entry(data=user_input)
-        current = self.config_entry.options.get(CONF_SCAN_INTERVAL, DEFAULT_SCAN_INTERVAL)
+        opts = self.config_entry.options
         return self.async_show_form(
             step_id="init",
             data_schema=vol.Schema(
                 {
-                    vol.Required(CONF_SCAN_INTERVAL, default=current): vol.All(
+                    vol.Required(
+                        CONF_SCAN_INTERVAL,
+                        default=opts.get(CONF_SCAN_INTERVAL, DEFAULT_SCAN_INTERVAL),
+                    ): vol.All(
                         vol.Coerce(int), vol.Range(min=MIN_SCAN_INTERVAL, max=MAX_SCAN_INTERVAL)
-                    )
+                    ),
+                    vol.Required(
+                        CONF_AMBILIGHT_COLORS, default=opts.get(CONF_AMBILIGHT_COLORS, False)
+                    ): bool,
                 }
             ),
         )

@@ -65,12 +65,18 @@
           "other": "Andere App / AirPlay / Medien",
           "unknown": "Unbekannt"
         }
+      },
+      "ambilight_color": {
+        "name": "Ambilight-Farbe"
       }
     }
   },
   "exceptions": {
     "unknown_key": {
       "message": "Unbekannte Taste(n): {keys}. Gültig: {valid}"
+    },
+    "only_channel_numbers": {
+      "message": "Nur Sendernummern werden unterstützt (Medientyp „channel“, z. B. „12“); erhalten: {type} „{id}“."
     }
   },
   "options": {
@@ -78,7 +84,8 @@
       "init": {
         "title": "Optionen",
         "data": {
-          "scan_interval": "Abfrageintervall (Sekunden)"
+          "scan_interval": "Abfrageintervall (Sekunden)",
+          "ambilight_colors": "Ambilight-Farben auslesen (eine zusätzliche Anfrage pro Abfrage; für den Farbsensor)"
         },
         "data_description": {
           "scan_interval": "Wie oft der Fernseher nach seinem Zustand gefragt wird (2–300 s). Zwei Anfragen pro Abfrage."

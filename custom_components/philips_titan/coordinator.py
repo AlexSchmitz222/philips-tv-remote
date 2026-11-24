@@ -26,6 +26,7 @@ from homeassistant.helpers.event import async_call_later
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 
 from .const import (
+    CONF_AMBILIGHT_COLORS,
     DEFAULT_SCAN_INTERVAL,
     DOMAIN,
     LOGGER,
@@ -34,7 +35,7 @@ from .const import (
     NOTIFY_TIMEOUT,
     WAKE_REFRESH_DELAY,
 )
-from .titan import AmbilightState, TitanTV, Volume
+from .titan import AmbilightColors, AmbilightState, TitanTV, Volume
 from .titan.client import TitanAuthError, TitanError, TitanUnreachableError
 from .titan.models import FIXED_COLOUR
 from .titan.system import system_info
@@ -48,6 +49,7 @@ class TitanData:
     volume: Volume | None = None
     context: str | None = None  # context.level1, e.g. "WatchExtension"
     context_raw: dict[str, Any] | None = None  # full GET context answer
+    colors: AmbilightColors | None = None  # only with the ambilight_colors option
 
 
 type TitanConfigEntry = ConfigEntry[TitanCoordinator]
@@ -89,6 +91,11 @@ class TitanCoordinator(DataUpdateCoordinator[TitanData]):
             ambilight = await self.tv.ambilight_state()
             volume = await self.tv.volume()
             context = await self.tv.get("context")
+            colors = (
+                await self.tv.ambilight_colors()
+                if self.read_colors and ambilight.on
+                else None
+            )
         except TitanUnreachableError:
             return TitanData(on=False)  # standby
         except TitanAuthError as err:
@@ -110,7 +117,12 @@ class TitanCoordinator(DataUpdateCoordinator[TitanData]):
         if raw and raw.get("level1"):
             self._context = raw["level1"]
         return TitanData(
-            on=True, ambilight=ambilight, volume=volume, context=self._context, context_raw=raw
+            on=True,
+            ambilight=ambilight,
+            volume=volume,
+            context=self._context,
+            context_raw=raw,
+            colors=colors,
         )
 
     # ------------------------------------------------------------ push
@@ -159,6 +171,10 @@ class TitanCoordinator(DataUpdateCoordinator[TitanData]):
     async def send_lounge_colour(self, current: AmbilightState | None) -> None:
         h, s = self.lounge_hs or (0.0, 0.0)
         await self.tv.set_ambilight_colour(round(h * 255 / 360), round(s * 255 / 100), 255, current)
+
+    @property
+    def read_colors(self) -> bool:
+        return bool(self.config_entry.options.get(CONF_AMBILIGHT_COLORS, False))
 
     @property
     def mac(self) -> str | None:

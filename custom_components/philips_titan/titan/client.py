@@ -20,7 +20,7 @@ from typing import Any
 import httpx
 
 from . import models as m
-from .models import AmbilightState, Volume
+from .models import AmbilightColors, AmbilightState, Volume
 
 DEFAULT_PORT = 1926
 API_VERSION = 6
@@ -253,6 +253,10 @@ class TitanTV:
             saturation=(values.get(m.NODE_SATURATION) or {}).get("value"),
         )
 
+    async def ambilight_colors(self) -> AmbilightColors:
+        """Current LED colours (GET ambilight/processed – safe, unlike lounge)."""
+        return AmbilightColors.from_processed(await self.get("ambilight/processed") or {})
+
     async def ambilight_off(self) -> None:
         await self.menu_update(m.NODE_STYLE, m.SID_STYLE, {"activenode_id": m.NODE_OFF})
 
@@ -377,6 +381,15 @@ class TitanTV:
 
     async def send_key(self, key: str) -> None:
         await self.post("input/key", {"key": key})
+
+    async def send_channel_number(self, number: str | int) -> None:
+        """Type a channel number with the digit keys (TV switches after its
+        own entry timeout). Keys are throttled by KEY_INTERVAL."""
+        digits = str(number).strip()
+        if not digits.isdigit() or len(digits) > 4:
+            raise ValueError(f"invalid channel number: {number!r}")
+        for d in digits:
+            await self.send_key(f"Digit{d}")
 
     async def standby(self) -> None:
         await self.send_key("Standby")

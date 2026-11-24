@@ -65,12 +65,18 @@
           "other": "Other app / AirPlay / media",
           "unknown": "Unknown"
         }
+      },
+      "ambilight_color": {
+        "name": "Ambilight colour"
       }
     }
   },
   "exceptions": {
     "unknown_key": {
       "message": "Unknown key(s): {keys}. Valid keys: {valid}"
+    },
+    "only_channel_numbers": {
+      "message": "Only channel numbers are supported (media type \"channel\", e.g. \"12\"); got {type} \"{id}\"."
     }
   },
   "options": {
@@ -78,7 +84,8 @@
       "init": {
         "title": "Options",
         "data": {
-          "scan_interval": "Polling interval (seconds)"
+          "scan_interval": "Polling interval (seconds)",
+          "ambilight_colors": "Read Ambilight colours (one extra request per poll; for the colour sensor)"
         },
         "data_description": {
           "scan_interval": "How often the TV is asked for its state (2–300 s). Two requests per poll."

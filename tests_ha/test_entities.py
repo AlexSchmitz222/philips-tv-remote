@@ -12,10 +12,11 @@ PLAYER = "media_player.65pqs8651_12"
 REMOTE = "remote.65pqs8651_12_remote"
 
 
-async def setup(hass: HomeAssistant) -> MockConfigEntry:
+async def setup(hass: HomeAssistant, options: dict | None = None) -> MockConfigEntry:
     entry = MockConfigEntry(
         domain=DOMAIN, title="65PQS8651/12", unique_id="bc:c2:d9:64:15:b8",
         data={"host": "tv", "username": "u", "password": "p", "mac": "bc:c2:d9:64:15:b8"},
+        options=options or {},
     )
     entry.add_to_hass(hass)
     assert await hass.config_entries.async_setup(entry.entry_id)
@@ -250,3 +251,42 @@ async def test_brand_icon_served_locally(hass: HomeAssistant, hass_client) -> No
     body = await resp.read()
     expected = (Path(__file__).parents[1] / "custom_components/philips_titan/brand/icon.png").read_bytes()
     assert body == expected
+
+
+async def test_colour_sensor_only_with_option(hass: HomeAssistant, fake_tv) -> None:
+    await setup(hass)
+    assert hass.states.get("sensor.65pqs8651_12_ambilight_colour") is None
+    assert ("GET", "ambilight/processed") not in fake_tv.log
+
+
+async def test_colour_sensor(hass: HomeAssistant, fake_tv) -> None:
+    await setup(hass, {"ambilight_colors": True})
+    st = hass.states.get("sensor.65pqs8651_12_ambilight_colour")
+    assert st.state == "#804040"
+    assert st.attributes["rgb_color"] == [128, 64, 64]
+    assert st.attributes["left"] == [255, 0, 0]
+
+
+async def test_play_channel(hass: HomeAssistant, fake_tv) -> None:
+    import pytest
+    from homeassistant.exceptions import ServiceValidationError
+    await setup(hass)
+    await hass.services.async_call("media_player", "play_media", {
+        "entity_id": PLAYER, "media_content_type": "channel", "media_content_id": "12"}, blocking=True)
+    assert fake_tv.keys == ["Digit1", "Digit2"]
+    with pytest.raises(ServiceValidationError):
+        await hass.services.async_call("media_player", "play_media", {
+            "entity_id": PLAYER, "media_content_type": "music", "media_content_id": "http://x"}, blocking=True)
+
+
+async def test_diagnostics_redacted(hass: HomeAssistant, fake_tv, hass_client) -> None:
+    from pytest_homeassistant_custom_component.components.diagnostics import (
+        get_diagnostics_for_config_entry,
+    )
+    entry = await setup(hass)
+    diag = await get_diagnostics_for_config_entry(hass, hass_client, entry)
+    text = json.dumps(diag)
+    assert "bc:c2:d9" not in text and '"p"' not in text
+    assert diag["entry"]["data"]["password"] == "**REDACTED**"
+    assert diag["state"]["on"] is True
+    assert diag["client"]["write_interval"] == 0
