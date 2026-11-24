@@ -142,6 +142,24 @@ Protokoll nach github.com/bedirhanyildirim/philips-titan-os-55pml9019-remote, hi
   implemented“. Die echten Operationsnamen kennt nur die App.
 - Noch nicht untersucht: `automation/set`, `rc`, `deeplink_v2`, `screenshot`.
 
+### Aus der App „Titan OS Mobile“ (`tv.titanos.eos.mobile` 1.5.3, statische Analyse 2026-11-25)
+Nur Protokoll-Erkenntnisse, kein Code übernommen.
+- **`state/power`** (abonnieren, retained): `{"power": "on" | "standby" | "semi-standby" | "off"}`.
+  Am 65PQS8651 bestätigt: `{"power":"on"}`.
+- **`channels/state`**: `{"state": "launcher" | "inactive", "channel": …}`; `channel` enthält bei Titan-eigenen
+  Sendern u. a. `playback_state` = `playing` / `paused` / `buffering` / `stopped`.
+- **`channels/command`**: `{"action": "open" | "toggle_favourite", "channelId": …, "requestId": …}`.
+- **`settings`**: `{"method": <name>, "params": {…}}`. Die App kennt nur `wowlan.get`, `wowlan.set`
+  (`params: {"enable": bool}`) und `tvname.set` (`params`: neuer Name). Ambilight-, Bild- oder Toneinstellungen gibt
+  es dort nicht.
+- **`rc`**: Tasten als `key_code`; **`info`**, **`pairing/*`**, **`deeplink_v2`**, **`proxy_v2`** wie oben.
+
+### Aus der App „Philips TV Remote“ (`com.tpvision.philipstvapp2` 3.0.93)
+Nutzt JointSpace wie wir: Menüknoten werden über `context` gefunden (`ambilight_style`, `ambilight_follow_video`,
+`ambilight_lounge_light`, `ambilight_brightness`, `ambilight_saturation` …), dieselben Endpunkte. Die Lounge-Farbe
+sendet sie mit dem Schlüssel `colorDelta` (wir: `colordelta`, funktioniert ebenfalls). Kontexte wie
+`ambilight_custom_left_color_set` (Farbe je Seite) kennt die App; das Menü dieses Fernsehers bietet sie nicht an.
+
 ## DIAL (Port 56789/56790)
 Offen. Laut Quelle ohne Pairing: `POST http://<tv>:56789/apps/<Name>` (YouTube, Netflix,
 AmazonInstantVideo …, teils mit `Origin`-Header), Gerätebeschreibung `http://<tv>:56790/dd.xml`. Nicht getestet.

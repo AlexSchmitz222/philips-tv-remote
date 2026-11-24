@@ -35,7 +35,7 @@ from paho.mqtt.properties import Properties
 HOST = "192.168.178.78"
 PORT = 8883
 CRED_FILE = Path(__file__).resolve().parents[1] / "mqtt_credentials.json"
-LISTEN_TOPICS = ["info", "channels/state", "#"]  # "#" only if the broker allows it
+LISTEN_TOPICS = ["info", "channels/state", "state/power"]
 
 
 def make_client(username: str | None = None, password: str | None = None) -> mqtt.Client:
