@@ -53,6 +53,10 @@ async def async_setup_entry(
 class TitanMediaPlayer(TitanEntity, MediaPlayerEntity):
     _attr_name = None  # main entity of the device
     _attr_device_class = MediaPlayerDeviceClass.TV
+    # The TV does not report playback state. With assumed_state the frontend
+    # shows separate play / pause / stop / previous / next buttons; otherwise
+    # it shows a single toggle that always calls media_play.
+    _attr_assumed_state = True
 
     def __init__(self, coordinator: TitanCoordinator) -> None:
         super().__init__(coordinator, "media_player")

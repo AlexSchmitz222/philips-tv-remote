@@ -10,6 +10,7 @@ sind (siehe [docs/api.md](docs/api.md)), und hält immer einen Mindestabstand zw
 |---|---|
 | `light.…_ambilight` | Ein/Aus, Effekte (AI, Standard, Sports, Cinema, Game, Lumina, Party, Rhythm, Fixed colour), Farbe, Helligkeit (gilt pro Stil) |
 | `media_player.…` | Ein (Wake-on-LAN) / Standby, Lautstärke setzen/±, Stummschalten, Play/Pause/Stop/Weiter/Zurück (Tasten, per HDMI-CEC auch an angeschlossene Geräte) |
+| `button.…_rewind`, `button.…_fast_forward` | Zurück-/Vorspulen (Tasten; HA-Media-Player hat dafür keine Knöpfe) |
 | `number.…_volume` | Lautstärke in den Stufen des Fernsehers (0–60); der Media Player zeigt Prozent |
 | `sensor.…_ambilight_colour` | optional (Option „Ambilight-Farben auslesen“): Durchschnittsfarbe der LEDs als `#rrggbb`, Attribut `rgb_color` – z. B. damit andere Lampen dem Bild folgen |
 | `sensor.…_input` | aktueller Eingang: Startbildschirm/Web-Apps, Satellit, TV, HDMI/Extension, andere App; Rohwerte als Attribute |

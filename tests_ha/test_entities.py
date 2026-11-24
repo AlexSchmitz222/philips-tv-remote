@@ -277,3 +277,11 @@ async def test_diagnostics_redacted(hass: HomeAssistant, fake_tv, hass_client) -
     assert diag["entry"]["data"]["password"] == "**REDACTED**"
     assert diag["state"]["on"] is True
     assert diag["client"]["write_interval"] == 0
+
+
+async def test_player_assumed_state_and_spool_buttons(hass: HomeAssistant, fake_tv) -> None:
+    await setup(hass)
+    assert hass.states.get(PLAYER).attributes.get("assumed_state") is True
+    await hass.services.async_call("button", "press", {"entity_id": "button.65pqs8651_12_fast_forward"}, blocking=True)
+    await hass.services.async_call("button", "press", {"entity_id": "button.65pqs8651_12_rewind"}, blocking=True)
+    assert fake_tv.keys == ["FastForward", "Rewind"]

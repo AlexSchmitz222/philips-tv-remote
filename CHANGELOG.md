@@ -15,6 +15,8 @@
 - MAC address from the TV (`network/devices`), model and serial in the device info.
 - Diagnostics download (credentials, MAC, IP and serial redacted).
 - Integration icon.
+- Media player marked as assumed state, so HA shows separate play/pause/stop/previous/next
+  buttons; rewind and fast-forward buttons.
 
 ## 0.1.0
 

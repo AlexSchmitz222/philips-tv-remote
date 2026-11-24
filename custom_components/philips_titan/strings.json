@@ -69,6 +69,14 @@
       "ambilight_color": {
         "name": "Ambilight colour"
       }
+    },
+    "button": {
+      "rewind": {
+        "name": "Rewind"
+      },
+      "fast_forward": {
+        "name": "Fast forward"
+      }
     }
   },
   "exceptions": {

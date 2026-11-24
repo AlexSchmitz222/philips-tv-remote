@@ -69,6 +69,14 @@
       "ambilight_color": {
         "name": "Ambilight-Farbe"
       }
+    },
+    "button": {
+      "rewind": {
+        "name": "Zurückspulen"
+      },
+      "fast_forward": {
+        "name": "Vorspulen"
+      }
     }
   },
   "exceptions": {
