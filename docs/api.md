@@ -27,11 +27,22 @@ Status: **ok** = getestet und funktioniert · **404** = gibt es nicht · **GEFÄ
 | `activities/tv` | ok | `channel`/`channelList` leer |
 | `channeldb/tv` | ok | `{}` |
 | `context` | ok | `level1` je nach Ansicht (2026-11-24 ausprobiert): `NetTv` = Homescreen, Disney+, Prime Video · `WatchSatellite` = Satellit · `WatchTv` = Antenne und Streaming-Sender · `WatchExtension` = HDMI 1–3, Titan Channels, Joyn · `NA` = Netflix, YouTube, AirPlay, Bildschirmspiegelung, Medien, Netzwerk. `level2`/`level3`/`data` bisher immer `NA`, dazu `Recording` |
+| `system/epgsource`, `input/textentry`, `input/pointer` | ok | `no_epg`; Texteingabe-/Zeigerstatus |
+| `system/storage/status`, `menuitems/settings/version`, `channeldb/tv/favoriteLists/all` | 404 | |
 | `applications`, `sources` | 403 | auch mit Scope read/write/control gesperrt |
 | `menuitems/settings/structure` | ok | enthält **nur** den Ambilight-Zweig (Bild-Knoten 2 ist leer) |
 
 Zweiter Durchlauf (2026-11-24 21:02) mit gesperrtem `lounge`-GET: alle Endpunkte ohne Absturz.
 → `GET ambilight/lounge` ist mit hoher Wahrscheinlichkeit der Auslöser (danach startet der Fernseher von selbst neu).
+
+## Belastungstest Schreiben (2026-11-25)
+| Schreibbefehle | Abstand | Ergebnis |
+|---|---|---|
+| Helligkeit (710), 15× | 1,5 s / 1,0 s | Median 0,015 s, max 0,07 s |
+| Stilwechsel (320 → 322/323), 15× | 1,5 s / 1,0 s | Median 0,024 s, max 0,07 s |
+| Kategorie (300: 320 ↔ 340) + Lounge-Farbe, 24× | 1,0 s | Median 0,024 s, **ein Ausreißer 1,2 s** |
+→ Abstand zwischen Schreibbefehlen 1,5 s (vorher 2 s). Der Absturz bei 0,5 s fiel mit der damals noch laufenden
+`notifychange`-Schleife zusammen; welche der beiden Ursachen den Ausschlag gab, ist offen.
 
 ## Menüknoten (Ambilight-Zweig)
 | Knoten | string_id | Typ | context | aktueller Wert |
@@ -48,7 +59,7 @@ Zweiter Durchlauf (2026-11-24 21:02) mit gesperrtem `lounge`-GET: alle Endpunkte
 | 730 | DESC_ID_WALL_L151 | WALL_COLOR | – | – |
 | 740 | ID_SWTH_L148 | LIST | ambilight_tv_switch_off | Ausschaltverhalten (beide Einträge haben `enum_id` 1) |
 
-| `screenstate` | ok, aber veraltet | GET meldete „Off“, während `notifychange` „On“ lieferte |
+| `screenstate` | ok, aber veraltet | GET meldet immer „Off“ (auch nach POST On). `POST {"screenstate":"Off"/"On"}` → HTTP 200; sichtbare Wirkung noch offen |
 | `network/devices` | ok | je Schnittstelle `mac`, `ip`, `type`, **`wake-on-lan`** (Enabled/Disabled) → MAC für WoL ohne ARP |
 | `channels`, `channels/current`, `sources/current` | 403 | |
 | `recordings/list`, `activities/browser`, `HueLamp/power` | 404 | |
@@ -126,7 +137,10 @@ Protokoll nach github.com/bedirhanyildirim/philips-titan-os-55pml9019-remote, hi
   (Die Quelle beschreibt `deeplink`/`proxy`; hier heißen sie `_v2`.)
 - **`channels/state`:** echte **Push-Meldung**, sofort bei jedem Wechsel: `{"state":"launcher"}` auf dem
   Startbildschirm, `{"state":"inactive"}` in einer App oder auf einer Quelle; `channel` bisher immer `null`.
-- Noch nicht untersucht: `settings`, `automation/set`, `rc`, `deeplink_v2`, `screenshot`.
+- **`settings`:** `{}` → Code 10 „Invalid message format“; das Feld heißt `method`. `get`, `GET`, `list`, `read`,
+  `query`, `status`, `describe`, `info`, `options`, `get_all`, `set`, `update` → Code 14 „Operation not
+  implemented“. Die echten Operationsnamen kennt nur die App.
+- Noch nicht untersucht: `automation/set`, `rc`, `deeplink_v2`, `screenshot`.
 
 ## DIAL (Port 56789/56790)
 Offen. Laut Quelle ohne Pairing: `POST http://<tv>:56789/apps/<Name>` (YouTube, Netflix,

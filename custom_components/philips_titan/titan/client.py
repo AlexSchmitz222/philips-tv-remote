@@ -28,7 +28,10 @@ DEFAULT_MIN_INTERVAL = 0.5  # between any two requests; reads stress-tested fine
 # Writes need far more room: the TV re-applies Ambilight/menu state and
 # crashed when settings were changed in quick succession (2026-11-24, HA
 # with 0.5 s for everything). The original notes said 1.5-2 s.
-WRITE_INTERVAL = 2.0  # between two setting writes (menu update, ambilight, volume)
+# Write stress test 2026-11-25: brightness and style writes fine at 1.0-1.5 s;
+# category switches + lounge colour at 1.0 s: one write took 1.2 s (others
+# ~0.02 s) -> 1.5 s keeps a margin.
+WRITE_INTERVAL = 1.5  # between two setting writes (menu update, ambilight, volume)
 KEY_INTERVAL = 1.0    # between two remote keys (untested below; conservative)
 # POSTs that only read
 READ_POSTS = frozenset({"menuitems/settings/current", "pair/request", "pair/grant"})
