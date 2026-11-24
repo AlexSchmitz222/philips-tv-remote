@@ -273,3 +273,66 @@ def test_channel_number_keys(fake):
             await tv.send_channel_number("1a")
     run(go())
     assert [b["key"] for m, p, b in fake.log if p == "input/key"] == ["Digit1", "Digit0", "Digit2"]
+
+
+# ---------------------------------------------------------------- menu layout
+
+def _structure_fixture():
+    from pathlib import Path
+    return json.loads((Path(__file__).parent / "fixtures/structure_65pqs8651.json").read_text())
+
+
+def test_layout_detected_from_real_structure_matches_default():
+    from philips_titan.layout import MenuLayout
+    detected = MenuLayout.from_structure(_structure_fixture())
+    default = MenuLayout.default()
+    assert detected.detected
+    assert (detected.style, detected.off, detected.video, detected.audio, detected.colour) == (
+        default.style, default.off, default.video, default.audio, default.colour)
+    assert detected.brightness == default.brightness and detected.saturation == default.saturation
+    assert [(s.key, s.category, s.item) for s in detected.styles] == [
+        (s.key, s.category, s.item) for s in default.styles]
+
+
+def test_layout_prefixed_other_model():
+    """55PML9019-style: MLM_PHM_KEY_ prefix, other node ids, an unknown item."""
+    from philips_titan.layout import MenuLayout
+    P = "MLM_PHM_KEY_"
+    structure = {"node": {"node_id": 1, "data": {"nodes": [
+        {"node_id": 900, "string_id": P + "MAIN_AMBILIGHT_STYLE", "context": "ambilight_style", "data": {"nodes": [
+            {"node_id": 910, "string_id": P + "MAIN_AMBILIGHT_STYLE_OFF", "context": "ambilight_off"},
+            {"node_id": 920, "string_id": P + "MAIN_FOLLOW_VIDEO", "context": "ambilight_follow_video", "data": {"enums": [
+                {"enum_id": 921, "string_id": P + "MAIN_AMBILIGHT_STYLE_VIDEO_1_2K20"},
+                {"enum_id": 929, "string_id": P + "MAIN_AMBILIGHT_VIVID"}]}},
+            {"node_id": 940, "string_id": P + "MAIN_FOLLOW_COLOUR", "context": "ambilight_lounge_light", "data": {"enums": [
+                {"enum_id": 945, "string_id": P + "MAIN_AMBILIGHT_FIXED_COLOUR"}]}},
+        ]}},
+        {"node_id": 990, "string_id": P + "BRIGHT", "context": "ambilight_brightness",
+         "data": {"slider_data": {"min": 0, "max": 20}}},
+    ]}}}
+    lay = MenuLayout.from_structure(structure)
+    assert lay.style.id == 900 and lay.style.sid == P + "MAIN_AMBILIGHT_STYLE" and lay.off == 910
+    assert lay.audio is None
+    assert [(s.key, s.item) for s in lay.styles] == [("standard", 921), ("video_929", 929), ("fixed_colour", 945)]
+    assert lay.style_by_key("video_929").name == "Main Ambilight Vivid"
+    assert lay.brightness.id == 990 and lay.brightness.max == 20
+    assert lay.fixed_colour.item == 945
+
+
+def test_layout_fallback_without_style_node():
+    from philips_titan.layout import MenuLayout
+    assert MenuLayout.from_structure({"node": {}}).detected is False
+
+
+def test_client_uses_detected_layout(fake):
+    from philips_titan.layout import MenuLayout, Node
+    async def go():
+        tv = make_tv(fake)
+        lay = MenuLayout.default()
+        tv.layout = MenuLayout(style=Node(300, "MLM_PHM_KEY_MAIN_AMBILIGHT_STYLE"), off=lay.off, video=lay.video,
+                               audio=lay.audio, colour=lay.colour, brightness=lay.brightness,
+                               saturation=lay.saturation, styles=lay.styles)
+        await tv.ambilight_off()
+    run(go())
+    body = fake.log[-1][2]["values"][0]["value"]
+    assert body["string_id"] == "MLM_PHM_KEY_MAIN_AMBILIGHT_STYLE" and body["data"] == {"activenode_id": 310}

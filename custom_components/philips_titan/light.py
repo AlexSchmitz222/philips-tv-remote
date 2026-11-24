@@ -18,19 +18,16 @@ from homeassistant.helpers.restore_state import RestoreEntity
 
 from .coordinator import TitanConfigEntry, TitanCoordinator
 from .entity import LatestCommand, TitanEntity, tv_command
-from .titan.models import (
-    BRIGHTNESS_MAX,
-    FIXED_COLOUR,
-    NODE_AUDIO,
-    NODE_VIDEO,
-    STYLES,
-    STYLES_BY_KEY,
-)
+from .titan.layout import MenuLayout
+from .titan.models import AmbilightStyle
 
-# Effect names shown in HA: grouped by what the style follows.
-_PREFIX = {NODE_VIDEO: "Video: ", NODE_AUDIO: "Audio: "}
-EFFECT_NAMES = {s.key: _PREFIX.get(s.category, "") + s.name for s in STYLES}
-STYLES_BY_EFFECT = {EFFECT_NAMES[s.key]: s for s in STYLES}
+def effect_name(layout: MenuLayout, style: AmbilightStyle) -> str:
+    """Effect names shown in HA, grouped by what the style follows."""
+    if layout.video and style.category == layout.video.id:
+        return f"Video: {style.name}"
+    if layout.audio and style.category == layout.audio.id:
+        return f"Audio: {style.name}"
+    return style.name
 
 
 async def async_setup_entry(
@@ -39,12 +36,12 @@ async def async_setup_entry(
     async_add_entities([AmbilightLight(entry.runtime_data)])
 
 
-def to_ha_brightness(value: int) -> int:
-    return max(1, round(value * 255 / BRIGHTNESS_MAX))
+def to_ha_brightness(value: int, tv_max: int = 10) -> int:
+    return max(1, round(value * 255 / tv_max))
 
 
-def to_tv_brightness(value: int) -> int:
-    return max(0, min(BRIGHTNESS_MAX, round(value * BRIGHTNESS_MAX / 255)))
+def to_tv_brightness(value: int, tv_max: int = 10) -> int:
+    return max(0, min(tv_max, round(value * tv_max / 255)))
 
 
 class AmbilightLight(TitanEntity, LightEntity, RestoreEntity):
@@ -52,7 +49,6 @@ class AmbilightLight(TitanEntity, LightEntity, RestoreEntity):
     _attr_color_mode = ColorMode.HS
     _attr_supported_color_modes = {ColorMode.HS}
     _attr_supported_features = LightEntityFeature.EFFECT
-    _attr_effect_list = [EFFECT_NAMES[s.key] for s in STYLES]
 
     def __init__(self, coordinator: TitanCoordinator) -> None:
         super().__init__(coordinator, "ambilight")
@@ -64,6 +60,22 @@ class AmbilightLight(TitanEntity, LightEntity, RestoreEntity):
         if self.coordinator.lounge_hs is None and (last := await self.async_get_last_state()):
             if hs := last.attributes.get(ATTR_HS_COLOR):
                 self.coordinator.lounge_hs = (float(hs[0]), float(hs[1]))
+
+    @property
+    def _layout(self) -> MenuLayout:
+        return self.coordinator.tv.layout
+
+    @property
+    def _tv_max(self) -> int:
+        b = self._layout.brightness
+        return b.max if b else 10
+
+    @property
+    def effect_list(self) -> list[str]:
+        return [effect_name(self._layout, s) for s in self._layout.styles]
+
+    def _style_for_effect(self, effect: str) -> AmbilightStyle:
+        return next(s for s in self._layout.styles if effect_name(self._layout, s) == effect)
 
     @property
     def available(self) -> bool:
@@ -80,12 +92,12 @@ class AmbilightLight(TitanEntity, LightEntity, RestoreEntity):
     @property
     def brightness(self) -> int | None:
         st = self._state
-        return to_ha_brightness(st.brightness) if st and st.brightness is not None else None
+        return to_ha_brightness(st.brightness, self._tv_max) if st and st.brightness is not None else None
 
     @property
     def effect(self) -> str | None:
         st = self._state
-        return EFFECT_NAMES[st.style.key] if st and st.on and st.style else None
+        return effect_name(self._layout, st.style) if st and st.on and st.style else None
 
     @property
     def hs_color(self) -> tuple[float, float] | None:
@@ -123,22 +135,23 @@ class AmbilightLight(TitanEntity, LightEntity, RestoreEntity):
             h, s = kwargs[ATTR_HS_COLOR]
             self.coordinator.lounge_hs = (float(h), float(s))
             await self.coordinator.send_lounge_colour(st)
-            style_changed = not (st and st.on and st.style == FIXED_COLOUR)
-            self.coordinator.set_ambilight_optimistic(on=True, style=FIXED_COLOUR)
+            fixed = self._layout.fixed_colour
+            style_changed = not (st and st.on and st.style == fixed)
+            self.coordinator.set_ambilight_optimistic(on=True, style=fixed)
         elif ATTR_EFFECT in kwargs:
-            style = STYLES_BY_EFFECT[kwargs[ATTR_EFFECT]]
+            style = self._style_for_effect(kwargs[ATTR_EFFECT])
             await self._activate(style.key)
             style_changed = not (st and st.on and st.style == style)
             self.coordinator.set_ambilight_optimistic(on=True, style=style)
         elif not (st and st.on):
-            style = STYLES_BY_KEY[self.coordinator.last_style_key]
+            style = self._layout.style_by_key(self.coordinator.last_style_key)
             await self._activate(style.key)
             style_changed = True
             self.coordinator.set_ambilight_optimistic(on=True, style=style)
 
         # Brightness is stored per style, so write it after a style change.
         if ATTR_BRIGHTNESS in kwargs:
-            value = to_tv_brightness(kwargs[ATTR_BRIGHTNESS])
+            value = to_tv_brightness(kwargs[ATTR_BRIGHTNESS], self._tv_max)
             await tv.set_ambilight_brightness(value)
             self.coordinator.set_ambilight_optimistic(brightness=value)
         elif style_changed:
@@ -146,8 +159,9 @@ class AmbilightLight(TitanEntity, LightEntity, RestoreEntity):
             await self.coordinator.async_request_refresh()
 
     async def _activate(self, key: str) -> None:
-        if key == FIXED_COLOUR.key and self.coordinator.lounge_hs:
+        fixed = self._layout.fixed_colour
+        if fixed and key == fixed.key and self.coordinator.lounge_hs:
             await self.coordinator.send_lounge_colour(self._state)
         else:
-            await self.coordinator.tv.set_ambilight_style(STYLES_BY_KEY[key].key, self._state)
+            await self.coordinator.tv.set_ambilight_style(key, self._state)
 

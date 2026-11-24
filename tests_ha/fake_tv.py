@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+from pathlib import Path
 
 import httpx
 
@@ -86,6 +87,9 @@ class FakeTV:
             except TimeoutError:
                 raise httpx.ReadTimeout("idle", request=request) from None
             return httpx.Response(200, json=self._notify_state())
+        if path == "menuitems/settings/structure":
+            fixture = Path(__file__).parents[1] / "tests/fixtures/structure_65pqs8651.json"
+            return httpx.Response(200, json=json.loads(fixture.read_text()))
         if path == "ambilight/processed":
             return httpx.Response(200, json={"layer1": {
                 "left": {"0": {"r": 255, "g": 0, "b": 0}, "1": {"r": 255, "g": 0, "b": 0}},

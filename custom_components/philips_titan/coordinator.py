@@ -27,7 +27,6 @@ from .const import (
 )
 from .titan import AmbilightState, TitanTV, Volume
 from .titan.client import TitanAuthError, TitanError, TitanUnreachableError
-from .titan.models import FIXED_COLOUR
 from .titan.system import system_info
 from .titan.wol import wake
 
@@ -67,6 +66,20 @@ class TitanCoordinator(DataUpdateCoordinator[TitanData]):
         self.last_style_key = "standard"
         self._context: str | None = None
         self.system_info: dict[str, str | None] = {}
+        self._layout_loaded = False
+
+    async def _load_layout(self) -> None:
+        """Detect the Ambilight menu layout once (one GET). Raises
+        TitanUnreachableError when the TV is off -> retried on the next poll."""
+        try:
+            layout = await self.tv.load_menu_layout()
+        except TitanUnreachableError:
+            raise
+        except TitanError as err:
+            LOGGER.warning("Menu structure not readable, using default layout: %s", err)
+        else:
+            LOGGER.debug("Menu layout detected: %s styles", len(layout.styles))
+        self._layout_loaded = True
 
     async def async_load_system_info(self) -> None:
         """Model/serial for the device registry (one unauthenticated GET)."""
@@ -77,6 +90,8 @@ class TitanCoordinator(DataUpdateCoordinator[TitanData]):
 
     async def _async_update_data(self) -> TitanData:
         try:
+            if not self._layout_loaded:
+                await self._load_layout()
             ambilight = await self.tv.ambilight_state()
             volume = await self.tv.volume()
             context = await self.tv.get("context")
@@ -91,7 +106,7 @@ class TitanCoordinator(DataUpdateCoordinator[TitanData]):
         if ambilight.on and ambilight.style:
             self.last_style_key = ambilight.style.key
             # After standby the TV shows its menu colour, not the lounge colour.
-            if was_off and ambilight.style == FIXED_COLOUR and self.lounge_hs:
+            if was_off and ambilight.style == self.tv.layout.fixed_colour and self.lounge_hs:
                 LOGGER.debug("TV is back on, re-sending lounge colour %s", self.lounge_hs)
                 try:
                     await self.send_lounge_colour(ambilight)

@@ -20,6 +20,7 @@ from typing import Any
 import httpx
 
 from . import models as m
+from .layout import MenuLayout
 from .models import AmbilightColors, AmbilightState, Volume
 
 DEFAULT_PORT = 1926
@@ -103,6 +104,7 @@ class TitanTV:
         self.write_interval = write_interval
         self.key_interval = key_interval
         self._last_write = 0.0
+        self.layout = MenuLayout.default()
         self._auth = httpx.DigestAuth(username, password) if username else None
         self._own_client = client is None
         self._client = client or httpx.AsyncClient(
@@ -241,19 +243,28 @@ class TitanTV:
     # Each method sends only request sequences verified on the device
     # (docs/api.md). Writes to the same node are not repeated needlessly.
 
+    async def load_menu_layout(self) -> MenuLayout:
+        """Detect node ids / items from the menu structure (one GET).
+        Keeps the default layout if the structure can't be read."""
+        self.layout = MenuLayout.from_structure(await self.menu_structure())
+        return self.layout
+
     async def ambilight_state(self) -> AmbilightState:
         """Read style, brightness and saturation in a single request."""
-        values = _menu_values(await self.menu_current(m.STATE_NODES))
-        active = (values.get(m.NODE_STYLE) or {}).get("activenode_id")
+        lay = self.layout
+        values = _menu_values(await self.menu_current(lay.state_nodes))
+        active = (values.get(lay.style.id) or {}).get("activenode_id")
         style = None
-        if active in (m.NODE_VIDEO, m.NODE_AUDIO, m.NODE_COLOUR):
+        if active in (n.id for n in lay.categories):
             item = (values.get(active) or {}).get("selected_item")
-            style = m.STYLES_BY_ITEM.get(item)
+            style = lay.style_for(active, item)
+            if style is None and len([s for s in lay.styles if s.category == active]) == 1:
+                style = next(s for s in lay.styles if s.category == active)
         return m.AmbilightState(
-            on=active is not None and active != m.NODE_OFF,
+            on=active is not None and active != lay.off,
             style=style,
-            brightness=(values.get(m.NODE_BRIGHTNESS) or {}).get("value"),
-            saturation=(values.get(m.NODE_SATURATION) or {}).get("value"),
+            brightness=(values.get(lay.brightness.id) or {}).get("value") if lay.brightness else None,
+            saturation=(values.get(lay.saturation.id) or {}).get("value") if lay.saturation else None,
         )
 
     async def ambilight_colors(self) -> AmbilightColors:
@@ -265,30 +276,37 @@ class TitanTV:
         return AmbilightColors.from_processed(await self.get("ambilight/processed") or {})
 
     async def ambilight_off(self) -> None:
-        await self.menu_update(m.NODE_STYLE, m.SID_STYLE, {"activenode_id": m.NODE_OFF})
+        lay = self.layout
+        await self.menu_update(lay.style.id, lay.style.sid, {"activenode_id": lay.off})
 
     async def set_ambilight_style(
         self, key: str, current: AmbilightState | None = None
     ) -> None:
         """Activate a style. ``current`` (from ambilight_state) avoids
         redundant writes – the TV ignores re-selecting the active item anyway."""
-        style = m.STYLES_BY_KEY[key]
+        lay = self.layout
+        style = lay.style_by_key(key)
         cur_cat = current.style.category if current and current.on and current.style else None
         cur_item = current.style.item if current and current.style else None
         if cur_cat != style.category:
-            await self.menu_update(m.NODE_STYLE, m.SID_STYLE, {"activenode_id": style.category})
-        # fixed colour has a single entry; it is always selected
-        if style.category != m.NODE_COLOUR and cur_item != style.item:
+            await self.menu_update(lay.style.id, lay.style.sid, {"activenode_id": style.category})
+        # a list with a single entry (fixed colour) always has it selected
+        single = len([s for s in lay.styles if s.category == style.category]) == 1
+        if not single and cur_item != style.item:
             await self.menu_update(style.category, style.category_sid, {"selected_item": style.item})
 
     async def set_ambilight_brightness(self, value: int) -> None:
-        """Menu brightness 0..10 – works for all styles."""
-        value = max(0, min(m.BRIGHTNESS_MAX, int(value)))
-        await self.menu_update(m.NODE_BRIGHTNESS, m.SID_BRIGHTNESS, {"value": value})
+        """Menu brightness (0..10 on the 65PQS8651) – works for all styles."""
+        b = self.layout.brightness
+        if b is None:
+            raise TitanError("this TV has no Ambilight brightness node")
+        await self.menu_update(b.id, b.sid, {"value": max(b.min, min(b.max, int(value)))})
 
     async def set_ambilight_saturation(self, value: int) -> None:
-        value = max(m.SATURATION_MIN, min(m.SATURATION_MAX, int(value)))
-        await self.menu_update(m.NODE_SATURATION, m.SID_SATURATION, {"value": value})
+        sat = self.layout.saturation
+        if sat is None:
+            raise TitanError("this TV has no Ambilight saturation node")
+        await self.menu_update(sat.id, sat.sid, {"value": max(sat.min, min(sat.max, int(value)))})
 
     async def set_ambilight_colour(
         self,
@@ -303,8 +321,11 @@ class TitanTV:
         is already active. Note: after standby the TV shows its menu colour
         again, the lounge colour has to be re-sent.
         """
-        if not (current and current.on and current.style == m.FIXED_COLOUR):
-            await self.set_ambilight_style(m.FIXED_COLOUR.key, current)
+        fixed = self.layout.fixed_colour
+        if fixed is None:
+            raise TitanError("this TV has no fixed-colour Ambilight style")
+        if not (current and current.on and current.style == fixed):
+            await self.set_ambilight_style(fixed.key, current)
         clamp = lambda v: max(0, min(255, int(v)))  # noqa: E731
         await self.post(
             "ambilight/lounge",

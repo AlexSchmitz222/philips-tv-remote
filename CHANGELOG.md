@@ -2,6 +2,9 @@
 
 ## 0.2.0
 
+- **Other Titan models:** the Ambilight menu layout (node ids, string ids with or without the
+  `MLM_PHM_KEY_` prefix, list items, slider ranges) is read from the TV once; unknown styles show
+  up as effects. Falls back to the layout verified on the 65PQS8651/12.
 - **Stability:** setting writes at least 2 s apart, remote keys 1 s, reads 0.5 s; rapid
   commands (clicking, dragging the colour wheel or sliders) are coalesced. The TV crashed
   when settings were written in quick succession.

@@ -270,3 +270,11 @@ async def test_media_controls_only_play_pause(hass: HomeAssistant, fake_tv) -> N
     for service in ("media_play", "media_pause", "media_play_pause"):
         await hass.services.async_call("media_player", service, {"entity_id": PLAYER}, blocking=True)
     assert fake_tv.keys == ["Play", "Pause", "PlayPause"]
+
+
+async def test_menu_layout_detected_once(hass: HomeAssistant, fake_tv) -> None:
+    entry = await setup(hass)
+    assert entry.runtime_data.tv.layout.detected
+    await entry.runtime_data.async_refresh()
+    assert fake_tv.log.count(("GET", "menuitems/settings/structure")) == 1
+    assert len(hass.states.get(LIGHT).attributes["effect_list"]) == 9

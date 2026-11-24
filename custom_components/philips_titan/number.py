@@ -9,7 +9,6 @@ from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 
 from .coordinator import TitanConfigEntry, TitanCoordinator
 from .entity import LatestCommand, TitanEntity, tv_command
-from .titan.models import SATURATION_MAX, SATURATION_MIN
 
 
 async def async_setup_entry(
@@ -21,8 +20,6 @@ async def async_setup_entry(
 class AmbilightSaturation(TitanEntity, NumberEntity):
     _attr_translation_key = "ambilight_saturation"
     _attr_entity_category = EntityCategory.CONFIG
-    _attr_native_min_value = SATURATION_MIN
-    _attr_native_max_value = SATURATION_MAX
     _attr_native_step = 1
     _attr_mode = NumberMode.SLIDER
 
@@ -31,8 +28,18 @@ class AmbilightSaturation(TitanEntity, NumberEntity):
         self._commands = LatestCommand()
 
     @property
+    def native_min_value(self) -> float:
+        sat = self.coordinator.tv.layout.saturation
+        return sat.min if sat else -2
+
+    @property
+    def native_max_value(self) -> float:
+        sat = self.coordinator.tv.layout.saturation
+        return sat.max if sat else 2
+
+    @property
     def available(self) -> bool:
-        return super().available and self.tv_on
+        return super().available and self.tv_on and self.coordinator.tv.layout.saturation is not None
 
     @property
     def native_value(self) -> float | None:

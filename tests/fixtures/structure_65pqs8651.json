@@ -1,0 +1,280 @@
+{
+ "node": {
+  "node_id": 1,
+  "type": "PARENT_NODE",
+  "string_id": "MAIN_IH_SETTINGS",
+  "icon": null,
+  "context": "Setup_Menu",
+  "data": {
+   "nodes": [
+    {
+     "node_id": 2,
+     "type": "PARENT_NODE",
+     "string_id": "ID_PICTU_L13",
+     "icon": null,
+     "context": "picture",
+     "data": {}
+    },
+    {
+     "node_id": 3,
+     "type": "PARENT_NODE",
+     "string_id": "ID_AMBIL_L15",
+     "icon": null,
+     "context": "ambilight",
+     "data": {
+      "nodes": [
+       {
+        "node_id": 300,
+        "type": "PARENT_NODE",
+        "string_id": "MAIN_AMBILIGHT_STYLE",
+        "icon": null,
+        "context": "ambilight_style",
+        "data": {
+         "nodes": [
+          {
+           "node_id": 310,
+           "type": "PARENT_NODE",
+           "string_id": "MAIN_AMBILIGHT_STYLE_OFF",
+           "icon": null,
+           "context": "ambilight_off",
+           "data": {}
+          },
+          {
+           "node_id": 320,
+           "type": "LIST_NODE",
+           "string_id": "MAIN_FOLLOW_VIDEO",
+           "icon": null,
+           "context": "ambilight_follow_video",
+           "data": {
+            "enums": [
+             {
+              "enum_id": 321,
+              "string_id": "MISC_AI"
+             },
+             {
+              "enum_id": 322,
+              "string_id": "MAIN_AMBILIGHT_STYLE_VIDEO_1_2K20"
+             },
+             {
+              "enum_id": 323,
+              "string_id": "MAIN_AMBILIGHT_STYLE_VIDEO_3_2K20"
+             },
+             {
+              "enum_id": 324,
+              "string_id": "MAIN_AMBILIGHT_CINEMA"
+             },
+             {
+              "enum_id": 325,
+              "string_id": "MAIN_AMBILIGHT_GAME_2K23"
+             }
+            ]
+           }
+          },
+          {
+           "node_id": 330,
+           "type": "LIST_NODE",
+           "string_id": "MAIN_FOLLOW_AUDIO",
+           "icon": null,
+           "context": "ambilight_follow_audio",
+           "data": {
+            "enums": [
+             {
+              "enum_id": 331,
+              "string_id": "MAIN_AMBILIGHT_STYLE_AUDIO_1_2K20"
+             },
+             {
+              "enum_id": 332,
+              "string_id": "MAIN_FOLLOW_AUDIO_STYLE_3_2K23"
+             },
+             {
+              "enum_id": 333,
+              "string_id": "MAIN_AMBILIGHT_STYLE_AUDIO_3_2K20"
+             }
+            ]
+           }
+          },
+          {
+           "node_id": 340,
+           "type": "LIST_NODE",
+           "string_id": "MAIN_FOLLOW_COLOUR",
+           "icon": null,
+           "context": "ambilight_lounge_light",
+           "data": {
+            "enums": [
+             {
+              "enum_id": 345,
+              "string_id": "MAIN_AMBILIGHT_FIXED_COLOUR"
+             }
+            ]
+           }
+          },
+          {
+           "node_id": 360,
+           "type": "PARENT_NODE",
+           "string_id": "MAIN_FOLLOW_APP",
+           "icon": null,
+           "context": "ambilight_follow_app",
+           "data": {}
+          }
+         ]
+        }
+       },
+       {
+        "node_id": 400,
+        "type": "PARENT_NODE",
+        "string_id": "MAIN_LOUNGE_LIGHT",
+        "icon": null,
+        "context": "ambilight_custom_colour",
+        "data": {}
+       },
+       {
+        "node_id": 500,
+        "type": "PARENT_NODE",
+        "string_id": "MAIN_AMBISLEEP",
+        "icon": null,
+        "context": "ambisleep",
+        "data": {
+         "nodes": [
+          {
+           "node_id": 510,
+           "type": "PARENT_NODE",
+           "string_id": "MAIN_START_AMBISLEEP",
+           "icon": null,
+           "context": "ambisleep_on",
+           "data": {}
+          },
+          {
+           "node_id": 520,
+           "type": "PARENT_NODE",
+           "string_id": "MAIN_AMBISLEEP_DURATION",
+           "icon": null,
+           "context": "ambisleep_duration",
+           "data": {}
+          },
+          {
+           "node_id": 530,
+           "type": "PARENT_NODE",
+           "string_id": "MAIN_AMBISLEEP_BRIGHTNESS",
+           "icon": null,
+           "context": "ambisleep_brightness",
+           "data": {}
+          },
+          {
+           "node_id": 540,
+           "type": "PARENT_NODE",
+           "string_id": "MAIN_AMBISLEEP_COLOUR",
+           "icon": null,
+           "context": "ambisleep_colour",
+           "data": {}
+          },
+          {
+           "node_id": 550,
+           "type": "PARENT_NODE",
+           "string_id": "MAIN_AMBISLEEP_SOUND",
+           "icon": null,
+           "context": "ambisleep_sound",
+           "data": {}
+          }
+         ]
+        }
+       },
+       {
+        "node_id": 700,
+        "type": "PARENT_NODE",
+        "string_id": "ID_AMB_ADV",
+        "icon": null,
+        "context": "ambilight_advanced",
+        "data": {
+         "nodes": [
+          {
+           "node_id": 710,
+           "type": "SLIDER_NODE",
+           "string_id": "PC_ID_BRIGH_L12",
+           "icon": null,
+           "context": "ambilight_brightness",
+           "data": {
+            "slider_data": {
+             "min": 0,
+             "max": 10,
+             "step_size": 1
+            }
+           }
+          },
+          {
+           "node_id": 720,
+           "type": "SLIDER_NODE",
+           "string_id": "ID_AMB_SAT",
+           "icon": null,
+           "context": "ambilight_saturation",
+           "data": {
+            "slider_data": {
+             "min": -2,
+             "max": 2,
+             "step_size": 1
+            }
+           }
+          },
+          {
+           "node_id": 730,
+           "type": "WALL_COLOR_NODE",
+           "string_id": "DESC_ID_WALL_L151",
+           "icon": null,
+           "context": "ambilight_wall_color",
+           "data": {
+            "colors": [
+             -1,
+             -1651276,
+             -3342439,
+             -3347201,
+             -3355393,
+             -13108,
+             -6451,
+             -103,
+             -12566464,
+             -3693173,
+             -6565376,
+             -10053121,
+             -2982751,
+             -33664,
+             -81560,
+             -256,
+             -15724528,
+             -7508135,
+             -10452480,
+             -15513423,
+             -5293203,
+             -1888983,
+             -5682169,
+             -26368
+            ]
+           }
+          },
+          {
+           "node_id": 740,
+           "type": "LIST_NODE",
+           "string_id": "ID_SWTH_L148",
+           "icon": null,
+           "context": "ambilight_tv_switch_off",
+           "data": {
+            "enums": [
+             {
+              "enum_id": 1,
+              "string_id": "SWITCH_OFF_1"
+             },
+             {
+              "enum_id": 1,
+              "string_id": "SWITCH_OFF_2"
+             }
+            ]
+           }
+          }
+         ]
+        }
+       }
+      ]
+     }
+    }
+   ]
+  }
+ }
+}
