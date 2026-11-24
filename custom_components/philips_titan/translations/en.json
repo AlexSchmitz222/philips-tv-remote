@@ -90,8 +90,12 @@
     "only_channel_numbers": {
       "message": "Only channel numbers are supported (media type \"channel\", e.g. \"12\"); got {type} \"{id}\"."
     },
-    "command_failed": "The TV did not accept the command: {error}",
-    "update_failed": "Could not read the TV state: {error}"
+    "command_failed": {
+      "message": "The TV did not accept the command: {error}"
+    },
+    "update_failed": {
+      "message": "Could not read the TV state: {error}"
+    }
   },
   "options": {
     "step": {

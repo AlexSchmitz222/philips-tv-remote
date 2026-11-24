@@ -90,8 +90,12 @@
     "only_channel_numbers": {
       "message": "Nur Sendernummern werden unterstützt (Medientyp „channel“, z. B. „12“); erhalten: {type} „{id}“."
     },
-    "command_failed": "Der Fernseher hat den Befehl nicht angenommen: {error}",
-    "update_failed": "Zustand des Fernsehers nicht lesbar: {error}"
+    "command_failed": {
+      "message": "Der Fernseher hat den Befehl nicht angenommen: {error}"
+    },
+    "update_failed": {
+      "message": "Zustand des Fernsehers nicht lesbar: {error}"
+    }
   },
   "options": {
     "step": {
