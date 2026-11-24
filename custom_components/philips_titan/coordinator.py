@@ -46,7 +46,8 @@ class TitanData:
     on: bool
     ambilight: AmbilightState | None = None
     volume: Volume | None = None
-    context: str | None = None  # e.g. "WatchExtension" (HDMI), from notifychange
+    context: str | None = None  # context.level1, e.g. "WatchExtension"
+    context_raw: dict[str, Any] | None = None  # full GET context answer
 
 
 type TitanConfigEntry = ConfigEntry[TitanCoordinator]
@@ -105,9 +106,12 @@ class TitanCoordinator(DataUpdateCoordinator[TitanData]):
                     await self.send_lounge_colour(ambilight)
                 except TitanError as err:
                     LOGGER.warning("Could not restore lounge colour: %s", err)
-        if isinstance(context, dict) and context.get("level1"):
-            self._context = context["level1"]
-        return TitanData(on=True, ambilight=ambilight, volume=volume, context=self._context)
+        raw = context if isinstance(context, dict) else None
+        if raw and raw.get("level1"):
+            self._context = raw["level1"]
+        return TitanData(
+            on=True, ambilight=ambilight, volume=volume, context=self._context, context_raw=raw
+        )
 
     # ------------------------------------------------------------ push
 

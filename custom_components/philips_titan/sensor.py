@@ -1,16 +1,23 @@
-"""Current input / activity (GET context, level1)."""
+"""Current input / activity (GET context)."""
 
 from __future__ import annotations
 
-from homeassistant.components.sensor import SensorEntity
+from homeassistant.components.sensor import SensorDeviceClass, SensorEntity
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 
 from .coordinator import TitanConfigEntry, TitanCoordinator
 from .entity import TitanEntity
 
-# Values seen on the 65PQS8651/12. Unknown values are shown as reported.
-KNOWN = {"WatchExtension": "HDMI"}
+# context.level1 values observed on the 65PQS8651/12 (2026-11-24):
+CONTEXT_STATES = {
+    "NetTv": "home",              # home screen, Disney+, Prime Video
+    "WatchSatellite": "satellite",
+    "WatchTv": "tv",              # antenna and IP streaming channels
+    "WatchExtension": "extension",  # HDMI 1-3, Titan Channels, Joyn
+    "NA": "other",                # Netflix, YouTube, AirPlay, mirroring, media, network
+}
+OPTIONS = [*dict.fromkeys(CONTEXT_STATES.values()), "unknown"]
 
 
 async def async_setup_entry(
@@ -21,6 +28,8 @@ async def async_setup_entry(
 
 class TitanInputSensor(TitanEntity, SensorEntity):
     _attr_translation_key = "input"
+    _attr_device_class = SensorDeviceClass.ENUM
+    _attr_options = OPTIONS
 
     def __init__(self, coordinator: TitanCoordinator) -> None:
         super().__init__(coordinator, "input")
@@ -30,11 +39,18 @@ class TitanInputSensor(TitanEntity, SensorEntity):
         return super().available and self.tv_on
 
     @property
+    def _raw(self) -> dict:
+        data = self.coordinator.data
+        return (data.context_raw or {}) if data else {}
+
+    @property
     def native_value(self) -> str | None:
-        ctx = self.coordinator.data.context if self.coordinator.data else None
-        return KNOWN.get(ctx, ctx) if ctx else None
+        level1 = self._raw.get("level1")
+        if not level1:
+            return None
+        return CONTEXT_STATES.get(level1, "unknown")
 
     @property
     def extra_state_attributes(self) -> dict[str, str | None]:
-        ctx = self.coordinator.data.context if self.coordinator.data else None
-        return {"context": ctx}
+        # everything the TV reports, so unmapped cases can be identified
+        return {k: v for k, v in self._raw.items()}

@@ -213,7 +213,8 @@ async def test_input_sensor_from_polling(hass: HomeAssistant, fake_tv) -> None:
     fake_tv.notify_supported = False  # must work from polling alone
     fake_tv.context = "WatchExtension"
     await setup(hass)
-    assert hass.states.get("sensor.65pqs8651_12_input").state == "HDMI"
+    st = hass.states.get("sensor.65pqs8651_12_input")
+    assert st.state == "extension" and st.attributes["level1"] == "WatchExtension"
     assert hass.states.get(PLAYER).attributes["source"] == "WatchExtension"
 
 
@@ -226,3 +227,13 @@ async def test_volume_number_in_tv_steps(hass: HomeAssistant, fake_tv) -> None:
     await hass.services.async_call("number", "set_value", {"entity_id": ent, "value": 12}, blocking=True)
     assert fake_tv.volume["current"] == 12
     assert hass.states.get(PLAYER).attributes["volume_level"] == 12 / 60
+
+
+async def test_input_sensor_values(hass: HomeAssistant, fake_tv) -> None:
+    fake_tv.notify_supported = False
+    entry = await setup(hass)
+    for level1, expected in (("NetTv", "home"), ("WatchSatellite", "satellite"), ("NA", "other"), ("Weird", "unknown")):
+        fake_tv.context = level1
+        await entry.runtime_data.async_refresh()
+        await hass.async_block_till_done()
+        assert hass.states.get("sensor.65pqs8651_12_input").state == expected

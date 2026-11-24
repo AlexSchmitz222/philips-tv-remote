@@ -23,10 +23,10 @@ Status: **ok** = getestet und funktioniert · **404** = gibt es nicht · **GEFÄ
 | `ambilight/lounge` | **GEFÄHRLICH** | GET → Timeout, danach antwortete die API nicht mehr (2026-11-24) |
 | `ambilight/cached`, `/measured`, `/processed` | ok | RGB je Zone (`layer1.left/top/right`), 17 Zonen. Im ersten Dump nur Timeout, weil `lounge` die API schon aufgehängt hatte |
 | `ambilight/ambihue/power`, `huelamp/power` | 404 | kein Ambilight+Hue |
-| `activities/current` | ok | `{"id":"skype"}` – Bedeutung unklar, wohl Platzhalter |
+| `activities/current` | ok, aber nutzlos | immer `{"id":"skype"}`, egal was läuft |
 | `activities/tv` | ok | `channel`/`channelList` leer |
 | `channeldb/tv` | ok | `{}` |
-| `context` | ok | `level1` z. B. `WatchExtension`, dazu `Recording` |
+| `context` | ok | `level1` je nach Ansicht (2026-11-24 ausprobiert): `NetTv` = Homescreen, Disney+, Prime Video · `WatchSatellite` = Satellit · `WatchTv` = Antenne und Streaming-Sender · `WatchExtension` = HDMI 1–3, Titan Channels, Joyn · `NA` = Netflix, YouTube, AirPlay, Bildschirmspiegelung, Medien, Netzwerk. `level2`/`level3`/`data` bisher immer `NA`, dazu `Recording` |
 | `applications`, `sources` | 403 | auch mit Scope read/write/control gesperrt |
 | `menuitems/settings/structure` | ok | enthält **nur** den Ambilight-Zweig (Bild-Knoten 2 ist leer) |
 

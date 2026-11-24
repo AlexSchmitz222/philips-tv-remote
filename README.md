@@ -11,7 +11,7 @@ sind (siehe [docs/api.md](docs/api.md)), und hält immer einen Mindestabstand zw
 | `light.…_ambilight` | Ein/Aus, Effekte (AI, Standard, Sports, Cinema, Game, Lumina, Party, Rhythm, Fixed colour), Farbe, Helligkeit (gilt pro Stil) |
 | `media_player.…` | Ein (Wake-on-LAN) / Standby, Lautstärke setzen/±, Stummschalten, Play/Pause/Stop/Weiter/Zurück (Tasten, per HDMI-CEC auch an angeschlossene Geräte) |
 | `number.…_volume` | Lautstärke in den Stufen des Fernsehers (0–60); der Media Player zeigt Prozent |
-| `sensor.…_input` | aktueller Eingang/Kontext (z. B. „HDMI“) |
+| `sensor.…_input` | aktueller Eingang: Startbildschirm/Web-Apps, Satellit, TV, HDMI/Extension, andere App; Rohwerte als Attribute |
 | `number.…_ambilight_saturation` | Ambilight-Sättigung −2 … +2 (Geräteeinstellung) |
 | `remote.…_remote` | Tasten senden (`remote.send_command`, z. B. `Home`, `CursorDown`, `Confirm`) |
 

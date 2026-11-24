@@ -56,7 +56,15 @@
     },
     "sensor": {
       "input": {
-        "name": "Input"
+        "name": "Input",
+        "state": {
+          "home": "Home screen / web apps",
+          "satellite": "Satellite",
+          "tv": "TV (antenna/streaming)",
+          "extension": "HDMI / extension",
+          "other": "Other app / AirPlay / media",
+          "unknown": "Unknown"
+        }
       }
     }
   },
