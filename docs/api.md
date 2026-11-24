@@ -62,6 +62,24 @@ ein korrekter Client hält **eine** Anfrage offen und wartet länger als der TV 
 `haphilipsjs` nutzt `notifychange` nur, wenn `/system` ein Feld `notifyChange` meldet – dieser TV meldet es **nicht**.
 Unsere Client-Timeouts (12–45 s) lagen darunter → vermutlich gestapelte offene Anfragen → 503.
 
+**Sauberer Test nach Stromtrennen (2026-11-24, 23:31–23:39)**: genau eine Anfrage, Client-Timeout 200 s, nie
+abgebrochen, HA-Integration deaktiviert, MQTT parallel mitgelesen:
+
+| Schritt | Ergebnis |
+|---|---|
+| `{}` (Grundstand) | sofort (0,3 s), 10 Keys |
+| Leerlauf | **HTTP 200 nach genau 120 s**, Inhalt unverändert (echte Antwort, kein Verbindungsabbruch) |
+| Helligkeit 10 → 3 | Antwort **12 s** nach der Änderung, keine geänderten Keys |
+| Lautstärke 5 → 6 | keine Meldung (Antwort erst nach 120 s) |
+| Helligkeit → 10 | **keine** Meldung (120 s) |
+| Lautstärke → 5 | keine Meldung (120 s) |
+
+Ohne gestapelte Anfragen bleibt der Dienst stabil (kein 503). Für Änderungsmeldungen ist er aber **unbrauchbar**:
+eine von zwei Ambilight-Änderungen kam an, und das erst nach 12 s; Lautstärke nie. Ein Client muss länger als
+120 s warten, sonst stapeln sich die Anfragen. MQTT meldete in derselben Zeit nichts außer `channels/state` beim
+Verbinden: Ambilight- und Lautstärkeänderungen kommen dort nicht.
+→ **Fazit:** Abfragen (Polling) bleibt der richtige Weg.
+
 `POST notifychange {"notification": <letzter bekannter Stand>}` – der Fernseher antwortet, sobald sich etwas
 vom mitgeschickten Stand unterscheidet, sonst bleibt die Anfrage offen (Read-Timeout auf Client-Seite).
 - Leere Notification `{}` → sofortige Antwort mit dem Gesamtstand: `context`, `powerstate` (per GET 404!),
