@@ -17,10 +17,15 @@ Der Zustand wird alle 30 s mit zwei Anfragen abgefragt. Nach dem Standby sendet 
 die feste Farbe erneut, weil der Fernseher sonst seine Menüfarbe zeigt.
 
 ## Installation
-1. Ordner `custom_components/philips_titan` nach `/config/custom_components/` auf den HA-Server kopieren
-   (Samba- oder SSH-Add-on).
-2. Home Assistant neu starten.
-3. Einstellungen → Geräte & Dienste → Integration hinzufügen → **Philips TV (Titan OS)**.
+**Über HACS** (das Repository muss öffentlich sein):
+1. HACS → ⋮ → *Benutzerdefinierte Repositories* → `https://github.com/AlexSchmitz222/philips-tv-remote`,
+   Typ **Integration**.
+2. *Philips TV (Titan OS)* suchen → Herunterladen → Home Assistant neu starten.
+
+**Von Hand:** Ordner `custom_components/philips_titan` nach `/config/custom_components/` kopieren
+(Samba- oder SSH-Add-on) und Home Assistant neu starten.
+
+**Einrichten:** Einstellungen → Geräte & Dienste → Integration hinzufügen → **Philips TV (Titan OS)**.
    Der Fernseher muss an sein. IP eingeben und die PIN eintippen, die der Fernseher anzeigt.
    Die MAC-Adresse für Wake-on-LAN wird automatisch ermittelt.
 
