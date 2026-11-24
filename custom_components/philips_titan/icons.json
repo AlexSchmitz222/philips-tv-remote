@@ -1,0 +1,35 @@
+{
+  "entity": {
+    "light": {
+      "ambilight": {
+        "default": "mdi:television-ambient-light"
+      }
+    },
+    "number": {
+      "ambilight_saturation": {
+        "default": "mdi:palette"
+      },
+      "volume": {
+        "default": "mdi:volume-high"
+      }
+    },
+    "remote": {
+      "remote": {
+        "default": "mdi:remote-tv"
+      }
+    },
+    "sensor": {
+      "input": {
+        "default": "mdi:video-input-hdmi",
+        "state": {
+          "home": "mdi:home",
+          "satellite": "mdi:satellite-variant",
+          "tv": "mdi:television-classic",
+          "extension": "mdi:video-input-hdmi",
+          "other": "mdi:apps",
+          "unknown": "mdi:help-circle-outline"
+        }
+      }
+    }
+  }
+}

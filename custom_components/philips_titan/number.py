@@ -11,6 +11,10 @@ from .coordinator import TitanConfigEntry, TitanCoordinator
 from .entity import LatestCommand, TitanEntity, tv_command
 
 
+# No HA-side limit: the client serialises and spaces requests itself, and rapid
+# commands must reach the entity concurrently to be coalesced (LatestCommand).
+PARALLEL_UPDATES = 0
+
 async def async_setup_entry(
     hass: HomeAssistant, entry: TitanConfigEntry, async_add_entities: AddConfigEntryEntitiesCallback
 ) -> None:
@@ -20,6 +24,7 @@ async def async_setup_entry(
 class AmbilightSaturation(TitanEntity, NumberEntity):
     _attr_translation_key = "ambilight_saturation"
     _attr_entity_category = EntityCategory.CONFIG
+    _attr_entity_registry_enabled_default = False  # rarely changed
     _attr_native_step = 1
     _attr_mode = NumberMode.SLIDER
 
@@ -59,6 +64,7 @@ class TitanVolume(TitanEntity, NumberEntity):
     """Volume in the TV's own steps (0-60), unlike the media player's percent."""
 
     _attr_translation_key = "volume"
+    _attr_entity_registry_enabled_default = False  # the media player covers volume too
     _attr_native_step = 1
     _attr_mode = NumberMode.SLIDER
 

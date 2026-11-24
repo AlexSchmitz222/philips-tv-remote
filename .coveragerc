@@ -1,0 +1,4 @@
+[run]
+omit =
+    custom_components/philips_titan/titan/*
+    src/philips_titan/cli.py

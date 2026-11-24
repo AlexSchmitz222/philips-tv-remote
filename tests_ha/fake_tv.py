@@ -30,6 +30,10 @@ class FakeTV:
         self.keys: list[str] = []
         self.log: list[tuple[str, str]] = []
         self.context = "WatchTv"
+        self.system = json.loads(json.dumps(SYSTEM))
+        self.pair_request_ok = True
+        self.fail: dict[str, int] = {}  # path -> HTTP status to answer with
+        self.network_devices_ok = True
         self.notify_supported = True
         self._changed: asyncio.Event | None = None
 
@@ -56,9 +60,13 @@ class FakeTV:
         path = request.url.path.removeprefix("/6/")
         body = json.loads(request.content) if request.content else None
         self.log.append((request.method, path))
+        if path in self.fail:
+            return httpx.Response(self.fail[path])
         if path == "system":
-            return httpx.Response(200, json=SYSTEM)
+            return httpx.Response(200, json=self.system)
         if path == "pair/request":
+            if not self.pair_request_ok:
+                return httpx.Response(200, json={"error_id": "CONCURRENT_PAIRING"})
             return httpx.Response(200, json={"error_id": "SUCCESS", "auth_key": "secret", "timestamp": 42, "timeout": 60})
         if path == "pair/grant":
             ok = body["auth"]["pin"] == self.pin
@@ -98,6 +106,8 @@ class FakeTV:
         if path == "context":
             return httpx.Response(200, json={"level1": self.context, "level2": "NA", "level3": "NA", "data": "NA"})
         if path == "network/devices":
+            if not self.network_devices_ok:
+                return httpx.Response(403)
             return httpx.Response(200, json=[
                 {"id": "eth0", "mac": "bc:c2:d9:64:15:b8", "ip": "192.168.178.78", "type": "Ethernet", "wake-on-lan": "Enabled"},
                 {"id": "wifi0", "mac": "44:ef:26:5a:8a:aa", "type": "Wifi", "wake-on-lan": "Disabled"},

@@ -336,3 +336,143 @@ def test_client_uses_detected_layout(fake):
     run(go())
     body = fake.log[-1][2]["values"][0]["value"]
     assert body["string_id"] == "MLM_PHM_KEY_MAIN_AMBILIGHT_STYLE" and body["data"] == {"activenode_id": 310}
+
+
+# ---------------------------------------------------------------- error paths / small modules
+
+def _tv(handler, **kw):
+    return TitanTV("tv", "u", "p", min_interval=0, write_interval=0, key_interval=0,
+                   client=httpx.AsyncClient(transport=httpx.MockTransport(handler)), **kw)
+
+
+@pytest.mark.parametrize("status,exc", [(401, "TitanAuthError"), (500, "TitanError")])
+def test_http_errors(status, exc):
+    import philips_titan.client as c
+    with pytest.raises(getattr(c, exc)):
+        run(_tv(lambda r: httpx.Response(status, text="x")).get("audio/volume"))
+
+
+def test_non_json_and_empty_bodies():
+    assert run(_tv(lambda r: httpx.Response(200, text="Ok")).get("x")) == "Ok"
+    assert run(_tv(lambda r: httpx.Response(200, text="  ")).get("x")) is None
+
+
+@pytest.mark.parametrize("response,expected", [
+    (httpx.Response(200, text=""), {}),
+    (httpx.Response(200, text="nope"), {}),
+    (httpx.Response(200, json=[1]), {}),
+])
+def test_notify_change_odd_bodies(response, expected):
+    assert run(_tv(lambda r: response).notify_change({})) == expected
+
+
+@pytest.mark.parametrize("status_or_exc,exc", [
+    (401, "TitanAuthError"), (503, "TitanError"),
+    (httpx.ConnectError("x"), "TitanUnreachableError"), (httpx.RemoteProtocolError("x"), "TitanConnectionError"),
+])
+def test_notify_change_errors(status_or_exc, exc):
+    import philips_titan.client as c
+
+    def handler(request):
+        if isinstance(status_or_exc, Exception):
+            raise type(status_or_exc)("x", request=request)
+        return httpx.Response(status_or_exc)
+
+    with pytest.raises(getattr(c, exc)):
+        run(_tv(handler).notify_change({}))
+
+
+def test_notify_change_refused_during_cooldown():
+    import time as _t
+    from philips_titan.client import TitanCooldownError
+    tv = _tv(lambda r: httpx.Response(200, json={}))
+    tv._cooldown_until = _t.monotonic() + 30
+    with pytest.raises(TitanCooldownError):
+        run(tv.notify_change({}))
+
+
+def test_wol_mac_fallback_without_enabled():
+    tv = _tv(lambda r: httpx.Response(200, json=[{"mac": "aa", "ip": "1.2.3.4", "type": "Wifi", "wake-on-lan": "Disabled"}]))
+    assert run(tv.wol_mac()) == "aa"
+    assert run(_tv(lambda r: httpx.Response(200, json={})).network_devices()) == []
+
+
+def test_set_muted_reads_volume_when_needed(fake):
+    async def go():
+        tv = make_tv(fake)
+        await tv.set_muted(True)          # reads volume, toggles
+        await tv.set_muted(True, await tv.volume())  # fake ignores muted flag -> toggles again
+    run(go())
+    assert [b["key"] for m, p, b in fake.log if p == "input/key"] == ["Mute", "Mute"]
+
+
+def test_layout_without_nodes_raises():
+    from philips_titan.client import TitanError
+    from philips_titan.layout import MenuLayout
+    tv = _tv(lambda r: httpx.Response(200, json={}))
+    lay = MenuLayout.default()
+    tv.layout = MenuLayout(style=lay.style, off=lay.off, video=lay.video, audio=None, colour=None,
+                           brightness=None, saturation=None, styles=lay.styles[:5])
+    for coro in (tv.set_ambilight_brightness(3), tv.set_ambilight_saturation(1), tv.set_ambilight_colour(0, 0)):
+        with pytest.raises(TitanError):
+            run(coro)
+
+
+def test_standby_and_context_manager(fake):
+    async def go():
+        async with make_tv(fake) as tv:
+            await tv.standby()
+    run(go())
+    assert fake.log[-1] == ("POST", "input/key", {"key": "Standby"})
+
+
+def test_wake_sends_to_ports(monkeypatch):
+    from philips_titan import wol
+    sent = []
+
+    class S:
+        def __init__(self, *a): pass
+        def __enter__(self): return self
+        def __exit__(self, *a): pass
+        def setsockopt(self, *a): pass
+        def sendto(self, data, addr): sent.append((len(data), addr))
+
+    monkeypatch.setattr(wol.socket, "socket", S)
+    wol.wake("bc:c2:d9:64:15:b8")
+    assert sent == [(102, ("255.255.255.255", 7)), (102, ("255.255.255.255", 9))]
+    with pytest.raises(ValueError):
+        wol.magic_packet("12:34")
+
+
+def test_system_info_bad_values():
+    from philips_titan.system import decrypt_field, system_info
+    assert decrypt_field("") is None
+    assert decrypt_field("not base64 !!") is None
+    assert system_info({}) == {"name": None, "model": None, "serial": None, "sw_version": None}
+
+
+def test_pairing_request_and_grant(fake):
+    from philips_titan.client import TitanError
+    from philips_titan.pairing import PairingSession, pair_grant, pair_request
+
+    def handler(request):
+        path = request.url.path.removeprefix("/6/")
+        if path == "system":
+            return httpx.Response(200, json={"featuring": {"jsonfeatures": {}}})
+        if path == "pair/request":
+            body = json.loads(request.content)
+            assert body["access"]["scope"] == ["read", "write", "control"]
+            return httpx.Response(200, json={"error_id": "SUCCESS", "auth_key": "k", "timestamp": 7})
+        if path == "pair/grant":
+            pin = json.loads(request.content)["auth"]["pin"]
+            return httpx.Response(200, json={"error_id": "SUCCESS" if pin == "1" else "INVALID_PIN"})
+        return httpx.Response(404)
+
+    tv = _tv(handler)
+    session = run(pair_request(tv))
+    assert isinstance(session, PairingSession) and session.password == "k" and len(session.username) == 16
+    run(pair_grant(tv, session, "1"))
+    with pytest.raises(TitanError, match="INVALID_PIN"):
+        run(pair_grant(tv, session, "2"))
+    with pytest.raises(TitanError, match="pair/request failed"):
+        run(pair_request(_tv(lambda r: httpx.Response(200, json={"error_id": "CONCURRENT_PAIRING"}))))

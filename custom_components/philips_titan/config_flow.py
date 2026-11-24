@@ -10,6 +10,7 @@ import voluptuous as vol
 
 from homeassistant.config_entries import (
     SOURCE_REAUTH,
+    SOURCE_RECONFIGURE,
     ConfigEntry,
     ConfigFlow,
     ConfigFlowResult,
@@ -25,6 +26,8 @@ from homeassistant.const import (
 )
 from homeassistant.core import callback
 from homeassistant.helpers.device_registry import format_mac
+from homeassistant.helpers.httpx_client import get_async_client
+from homeassistant.helpers.service_info.zeroconf import ZeroconfServiceInfo
 
 from .const import (
     CONF_MQTT_PASSWORD,
@@ -53,6 +56,16 @@ def arp_lookup(host: str) -> str | None:
     return None
 
 
+def is_titan_pairable(system: dict[str, Any]) -> bool:
+    """JointSpace v6 with PIN/digest pairing on a Linux (Titan OS) TV."""
+    features = system.get("featuring", {}).get("systemfeatures", {})
+    return (
+        features.get("pairing_type") == "digest_auth_pairing"
+        and features.get("os_type") == "Linux"
+        and system.get("api_version", {}).get("Major") == 6
+    )
+
+
 class TitanConfigFlow(ConfigFlow, domain=DOMAIN):
     VERSION = 1
 
@@ -70,51 +83,52 @@ class TitanConfigFlow(ConfigFlow, domain=DOMAIN):
 
     # ------------------------------------------------------------ helpers
 
-    async def _close(self) -> None:
-        if self._tv:
-            await self._tv.close()
-            self._tv = None
+    def _new_tv(self, host: str) -> TitanTV:
+        return TitanTV(host, client=get_async_client(self.hass, verify_ssl=False))
 
-    async def _start_pairing(self) -> None:
-        """Ask the TV to show a PIN."""
+    async def _probe(self, host: str) -> str | None:
+        """Check the TV; returns an error key or None. Sets name and MAC."""
+        self._host = host
+        self._tv = self._new_tv(host)
+        try:
+            system = await self._tv.system()
+        except TitanError:
+            return "cannot_connect"
+        if not isinstance(system, dict) or not is_titan_pairable(system):
+            return "not_supported"
+        self._name = system.get("name") or self._name
+        if not self._mac:
+            mac = await self.hass.async_add_executor_job(arp_lookup, host)
+            self._mac = format_mac(mac) if mac else None
+        return None
+
+    async def _start_pairing(self) -> str | None:
+        """Ask the TV to show a PIN; returns an error key or None."""
         assert self._tv
-        self._session = await pair_request(self._tv)
+        try:
+            self._session = await pair_request(self._tv)
+        except TitanConnectionError:
+            return "cannot_connect"
+        except TitanError as err:
+            LOGGER.warning("pair/request failed: %s", err)
+            return "pairing_failed"
+        return None
 
-    def async_remove(self) -> None:
-        if self._tv:
-            self.hass.async_create_task(self._close())
-
-    # -------------------------------------------------------------- steps
+    # -------------------------------------------------------------- user
 
     async def async_step_user(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
         errors: dict[str, str] = {}
         if user_input is not None:
-            self._host = user_input[CONF_HOST].strip()
-            await self._close()
-            self._tv = TitanTV(self._host)
-            try:
-                system = await self._tv.system()
-            except TitanError:
-                errors["base"] = "cannot_connect"
-            else:
-                features = (system or {}).get("featuring", {}).get("systemfeatures", {})
-                if features.get("pairing_type") != "digest_auth_pairing":
-                    errors["base"] = "not_supported"
-                else:
-                    self._name = system.get("name") or self._name
-                    mac = user_input.get(CONF_MAC) or await self.hass.async_add_executor_job(
-                        arp_lookup, self._host
-                    )
-                    self._mac = format_mac(mac) if mac else None
-                    await self.async_set_unique_id(self._mac or self._host)
-                    self._abort_if_unique_id_configured(updates={CONF_HOST: self._host})
-                    try:
-                        await self._start_pairing()
-                    except TitanError as err:
-                        LOGGER.warning("pair/request failed: %s", err)
-                        errors["base"] = "pairing_failed"
-                    else:
-                        return await self.async_step_pin()
+            if mac := user_input.get(CONF_MAC):
+                self._mac = format_mac(mac)
+            error = await self._probe(user_input[CONF_HOST].strip())
+            if error is None:
+                await self.async_set_unique_id(self._mac or self._host)
+                self._abort_if_unique_id_configured(updates={CONF_HOST: self._host})
+                error = await self._start_pairing()
+            if error is None:
+                return await self.async_step_pin()
+            errors["base"] = error
 
         return self.async_show_form(
             step_id="user",
@@ -124,6 +138,36 @@ class TitanConfigFlow(ConfigFlow, domain=DOMAIN):
             ),
             errors=errors,
         )
+
+    # ----------------------------------------------------------- zeroconf
+
+    async def async_step_zeroconf(
+        self, discovery_info: ZeroconfServiceInfo
+    ) -> ConfigFlowResult:
+        """_philipstv_s_rpc._tcp: also announced by Android Philips TVs, which
+        is why the TV is checked before anything is offered."""
+        if await self._probe(discovery_info.host) is not None:
+            return self.async_abort(reason="not_supported")
+        await self.async_set_unique_id(self._mac or self._host)
+        self._abort_if_unique_id_configured(updates={CONF_HOST: self._host})
+        self.context["title_placeholders"] = {"name": self._name}
+        return await self.async_step_zeroconf_confirm()
+
+    async def async_step_zeroconf_confirm(
+        self, user_input: dict[str, Any] | None = None
+    ) -> ConfigFlowResult:
+        errors: dict[str, str] = {}
+        if user_input is not None:
+            if (error := await self._start_pairing()) is None:
+                return await self.async_step_pin()
+            errors["base"] = error
+        return self.async_show_form(
+            step_id="zeroconf_confirm",
+            errors=errors,
+            description_placeholders={"name": self._name, "host": self._host or ""},
+        )
+
+    # ---------------------------------------------------------------- pin
 
     async def async_step_pin(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
         errors: dict[str, str] = {}
@@ -135,11 +179,8 @@ class TitanConfigFlow(ConfigFlow, domain=DOMAIN):
                 errors["base"] = "cannot_connect"
             except TitanError as err:
                 LOGGER.info("pair/grant failed: %s – requesting a new PIN", err)
-                errors["base"] = "invalid_pin"
-                try:
-                    await self._start_pairing()  # the old PIN is void now
-                except TitanError:
-                    errors["base"] = "pairing_failed"
+                # the old PIN is void now
+                errors["base"] = await self._start_pairing() or "invalid_pin"
             else:
                 return await self._finish()
 
@@ -160,7 +201,7 @@ class TitanConfigFlow(ConfigFlow, domain=DOMAIN):
                     self._mac = format_mac(mac)
             except TitanError as err:
                 LOGGER.debug("network/devices failed: %s", err)
-            if self._mac and self.source != SOURCE_REAUTH:
+            if self._mac and self.source not in (SOURCE_REAUTH, SOURCE_RECONFIGURE):
                 await self.async_set_unique_id(self._mac)
                 self._abort_if_unique_id_configured(updates={CONF_HOST: self._host})
         data = {
@@ -170,9 +211,12 @@ class TitanConfigFlow(ConfigFlow, domain=DOMAIN):
         }
         if self._mac:
             data[CONF_MAC] = self._mac
-        await self._close()
         if self.source == SOURCE_REAUTH:
             return self.async_update_reload_and_abort(self._get_reauth_entry(), data_updates=data)
+        if self.source == SOURCE_RECONFIGURE:
+            return self.async_update_reload_and_abort(
+                self._get_reconfigure_entry(), data_updates=data
+            )
         return self.async_create_entry(title=self._name, data=data)
 
     # ------------------------------------------------------------- reauth
@@ -188,20 +232,44 @@ class TitanConfigFlow(ConfigFlow, domain=DOMAIN):
     ) -> ConfigFlowResult:
         errors: dict[str, str] = {}
         if user_input is not None:
-            await self._close()
-            self._tv = TitanTV(self._host)
-            try:
-                await self._start_pairing()
-            except TitanConnectionError:
-                errors["base"] = "cannot_connect"
-            except TitanError:
-                errors["base"] = "pairing_failed"
-            else:
+            assert self._host
+            self._tv = self._new_tv(self._host)
+            if (error := await self._start_pairing()) is None:
                 return await self.async_step_pin()
+            errors["base"] = error
         return self.async_show_form(
             step_id="reauth_confirm",
             errors=errors,
             description_placeholders={"name": self._name},
+        )
+
+    # -------------------------------------------------------- reconfigure
+
+    async def async_step_reconfigure(
+        self, user_input: dict[str, Any] | None = None
+    ) -> ConfigFlowResult:
+        """Change the host (new IP) – pairs again, the TV must be on."""
+        entry = self._get_reconfigure_entry()
+        errors: dict[str, str] = {}
+        if user_input is not None:
+            self._mac = entry.data.get(CONF_MAC)
+            error = await self._probe(user_input[CONF_HOST].strip())
+            if error is None and self._mac and entry.unique_id == self._mac:
+                # a different TV behind the new address must not take over this entry
+                found = await self.hass.async_add_executor_job(arp_lookup, self._host)
+                if found and format_mac(found) != self._mac:
+                    return self.async_abort(reason="wrong_device")
+            if error is None:
+                error = await self._start_pairing()
+            if error is None:
+                return await self.async_step_pin()
+            errors["base"] = error
+        return self.async_show_form(
+            step_id="reconfigure",
+            data_schema=self.add_suggested_values_to_schema(
+                vol.Schema({vol.Required(CONF_HOST): str}), user_input or dict(entry.data)
+            ),
+            errors=errors,
         )
 
 
@@ -246,7 +314,10 @@ class TitanOptionsFlow(OptionsFlow):
         from .titan.mqtt import MqttPairing
 
         await self._close_pairing()
-        pairing = MqttPairing(self.config_entry.data[CONF_HOST])
+        # paho sets up sockets/TLS on construction -> executor
+        pairing = await self.hass.async_add_executor_job(
+            MqttPairing, self.config_entry.data[CONF_HOST]
+        )
         await self.hass.async_add_executor_job(pairing.start)  # TV shows a PIN
         self._pairing = pairing
 

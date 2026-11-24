@@ -53,7 +53,11 @@ def tv_command[_E: TitanEntity, **_P](
         try:
             await func(self, *args, **kwargs)
         except TitanError as err:
-            raise HomeAssistantError(f"Philips TV: {err}") from err
+            raise HomeAssistantError(
+                translation_domain=DOMAIN,
+                translation_key="command_failed",
+                translation_placeholders={"error": str(err)},
+            ) from err
 
     return wrapper
 

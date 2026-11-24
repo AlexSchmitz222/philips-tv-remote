@@ -100,6 +100,9 @@ class TitanCoordinator(DataUpdateCoordinator[TitanData]):
 
     @callback
     def handle_mqtt_connection(self, connected: bool) -> None:
+        if connected != self.mqtt_connected:
+            # once per change, not on every reconnect attempt (log-when-unavailable)
+            LOGGER.info("MQTT push %s", "connected" if connected else "disconnected")
         self.mqtt_connected = connected
         if not connected:
             self._push_power = None
@@ -135,7 +138,11 @@ class TitanCoordinator(DataUpdateCoordinator[TitanData]):
         except TitanAuthError as err:
             raise ConfigEntryAuthFailed(str(err)) from err
         except TitanError as err:
-            raise UpdateFailed(str(err)) from err
+            raise UpdateFailed(
+                translation_domain=DOMAIN,
+                translation_key="update_failed",
+                translation_placeholders={"error": str(err)},
+            ) from err
 
         was_off = self.data is not None and not self.data.on
         if ambilight.on and ambilight.style:
@@ -172,10 +179,13 @@ class TitanCoordinator(DataUpdateCoordinator[TitanData]):
             return
         await self.hass.async_add_executor_job(wake, self.mac)
 
-        async def _refresh(_now) -> None:
+        async def _refresh(_now: Any) -> None:
             await self.async_request_refresh()
 
-        async_call_later(self.hass, WAKE_REFRESH_DELAY, _refresh)
+        # cancelled on unload, so no timer outlives the config entry
+        self.config_entry.async_on_unload(
+            async_call_later(self.hass, WAKE_REFRESH_DELAY, _refresh)
+        )
 
     async def async_standby(self) -> None:
         await self.tv.standby()

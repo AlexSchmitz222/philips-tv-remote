@@ -37,6 +37,10 @@ BASE_FEATURES = (
 MEDIA_KEYS = {"play": "Play", "pause": "Pause", "play_pause": "PlayPause"}
 
 
+# No HA-side limit: the client serialises and spaces requests itself, and rapid
+# commands must reach the entity concurrently to be coalesced (LatestCommand).
+PARALLEL_UPDATES = 0
+
 async def async_setup_entry(
     hass: HomeAssistant, entry: TitanConfigEntry, async_add_entities: AddConfigEntryEntitiesCallback
 ) -> None:

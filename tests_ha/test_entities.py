@@ -114,7 +114,7 @@ async def test_lounge_colour_restored_after_standby(hass: HomeAssistant, fake_tv
     assert fake_tv.lounge == {"hue": 85, "saturation": 255, "brightness": 255}
 
 
-async def test_saturation(hass: HomeAssistant, fake_tv) -> None:
+async def test_saturation(hass: HomeAssistant, fake_tv, entity_registry_enabled_by_default) -> None:
     await setup(hass)
     ent = "number.65pqs8651_12_ambilight_saturation"
     assert hass.states.get(ent).state == "0"
@@ -199,7 +199,7 @@ async def test_input_sensor_from_polling(hass: HomeAssistant, fake_tv) -> None:
     assert hass.states.get(PLAYER).attributes["source"] == "WatchExtension"
 
 
-async def test_volume_number_in_tv_steps(hass: HomeAssistant, fake_tv) -> None:
+async def test_volume_number_in_tv_steps(hass: HomeAssistant, fake_tv, entity_registry_enabled_by_default) -> None:
     fake_tv.volume["current"] = 5
     await setup(hass)
     ent = "number.65pqs8651_12_volume"

@@ -20,6 +20,9 @@ CONTEXT_STATES = {
 OPTIONS = [*dict.fromkeys(CONTEXT_STATES.values()), "unknown"]
 
 
+# Read-only, updated by the coordinator.
+PARALLEL_UPDATES = 0
+
 async def async_setup_entry(
     hass: HomeAssistant, entry: TitanConfigEntry, async_add_entities: AddConfigEntryEntitiesCallback
 ) -> None:

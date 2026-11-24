@@ -22,6 +22,17 @@
       "reauth_confirm": {
         "title": "Pair again",
         "description": "{name} no longer accepts the stored credentials. Switch the TV on and continue – a new PIN will be shown."
+      },
+      "zeroconf_confirm": {
+        "title": "Philips TV (Titan OS) found",
+        "description": "Set up {name} ({host})? The TV must be on – it will show a PIN next."
+      },
+      "reconfigure": {
+        "title": "Change address",
+        "description": "New address of the TV. The TV must be on; it will show a PIN for pairing again.",
+        "data": {
+          "host": "Host"
+        }
       }
     },
     "error": {
@@ -32,8 +43,12 @@
     },
     "abort": {
       "already_configured": "This TV is already configured.",
-      "reauth_successful": "Paired again successfully."
-    }
+      "reauth_successful": "Paired again successfully.",
+      "not_supported": "This is not a Philips TV with Titan OS (JointSpace 6 with PIN pairing).",
+      "wrong_device": "A different TV answers at this address.",
+      "reconfigure_successful": "The address was changed."
+    },
+    "flow_title": "{name}"
   },
   "entity": {
     "light": {
@@ -74,7 +89,9 @@
     },
     "only_channel_numbers": {
       "message": "Only channel numbers are supported (media type \"channel\", e.g. \"12\"); got {type} \"{id}\"."
-    }
+    },
+    "command_failed": "The TV did not accept the command: {error}",
+    "update_failed": "Could not read the TV state: {error}"
   },
   "options": {
     "step": {
@@ -99,6 +116,12 @@
     "error": {
       "mqtt_failed": "Could not reach the TV's MQTT service (port 8883). Is the TV on?",
       "invalid_pin": "Wrong PIN. A new PIN is now shown on the TV."
+    }
+  },
+  "issues": {
+    "no_mac": {
+      "title": "{name} cannot be switched on",
+      "description": "The MAC address of {name} is unknown, so Home Assistant cannot wake the TV (in standby it is not reachable over the network). Remove the integration and add it again while the TV is on and in the same network as Home Assistant, or enter the MAC address there."
     }
   }
 }

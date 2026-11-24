@@ -31,3 +31,16 @@ def fake_tv():
     ):
         tv.wake = wake
         yield tv
+
+
+@pytest.fixture
+def entity_registry_enabled_by_default():
+    """Enable entities that are disabled by default (as in HA core tests)."""
+    from unittest.mock import PropertyMock
+
+    with patch(
+        "homeassistant.helpers.entity.Entity.entity_registry_enabled_default",
+        new_callable=PropertyMock,
+        return_value=True,
+    ):
+        yield
