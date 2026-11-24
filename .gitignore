@@ -1,0 +1,8 @@
+.venv/
+__pycache__/
+*.egg-info/
+# Zugangsdaten vom Pairing – niemals committen
+credentials.json
+# Rohdaten vom Gerät (enthalten u. a. Seriennummern)
+dumps/
+.venv-ha/

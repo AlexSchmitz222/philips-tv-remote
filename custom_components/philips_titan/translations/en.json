@@ -1,0 +1,60 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Philips TV (Titan OS)",
+        "description": "The TV must be switched on. After submitting, a PIN is shown on the TV.",
+        "data": {
+          "host": "Host",
+          "mac": "MAC address (optional, for switching on via Wake-on-LAN)"
+        },
+        "data_description": {
+          "mac": "Detected automatically if Home Assistant is in the same network."
+        }
+      },
+      "pin": {
+        "title": "Enter PIN",
+        "description": "Enter the PIN shown on {name}.",
+        "data": {
+          "pin": "PIN"
+        }
+      },
+      "reauth_confirm": {
+        "title": "Pair again",
+        "description": "{name} no longer accepts the stored credentials. Switch the TV on and continue – a new PIN will be shown."
+      }
+    },
+    "error": {
+      "cannot_connect": "Cannot connect. Is the TV switched on?",
+      "not_supported": "This TV does not support PIN (digest) pairing.",
+      "pairing_failed": "The TV refused the pairing request. Try again.",
+      "invalid_pin": "Wrong PIN. A new PIN is now shown on the TV."
+    },
+    "abort": {
+      "already_configured": "This TV is already configured.",
+      "reauth_successful": "Paired again successfully."
+    }
+  },
+  "entity": {
+    "light": {
+      "ambilight": {
+        "name": "Ambilight"
+      }
+    },
+    "remote": {
+      "remote": {
+        "name": "Remote"
+      }
+    },
+    "number": {
+      "ambilight_saturation": {
+        "name": "Ambilight saturation"
+      }
+    }
+  },
+  "exceptions": {
+    "unknown_key": {
+      "message": "Unknown key(s): {keys}. Valid keys: {valid}"
+    }
+  }
+}

@@ -1,0 +1,326 @@
+"""Low-level async client for the JointSpace v6 API on Titan OS.
+
+Design constraints learned from the device (PQS8651/12):
+* HTTPS on port 1926 with a self-signed TPV certificate.
+* HTTP Digest auth. The body must be sent with the *first* request – an empty
+  probe POST is answered with 503 instead of 401. httpx does this correctly.
+* The API locks up when hit with bursts of requests (only a power cycle
+  helps). Every request therefore goes through a lock that enforces a minimum
+  interval between requests. Do not lower it without reason.
+"""
+
+from __future__ import annotations
+
+import asyncio
+import json
+import ssl
+import time
+from typing import Any
+
+import httpx
+
+from . import models as m
+from .models import AmbilightState, Volume
+
+DEFAULT_PORT = 1926
+API_VERSION = 6
+DEFAULT_MIN_INTERVAL = 1.5  # seconds between two requests
+DEFAULT_TIMEOUT = 10.0
+CONNECT_TIMEOUT = 4.0  # in standby the TV is not reachable at all
+
+# After a timeout the API is usually wedged; hammering it makes things worse.
+# Requests fail fast during a growing cooldown instead.
+COOLDOWN_START = 30.0
+COOLDOWN_MAX = 300.0
+
+# Requests known to wedge the API on Titan OS. They are refused client-side.
+UNSAFE_REQUESTS: dict[tuple[str, str], str] = {
+    ("GET", "ambilight/lounge"): "hängte die API auf (Dump 2026-11-24, PQS8651)",
+}
+
+
+class TitanError(Exception):
+    """Base error."""
+
+
+class TitanConnectionError(TitanError):
+    """TV not reachable / timed out."""
+
+
+class TitanAuthError(TitanError):
+    """Credentials rejected."""
+
+
+class TitanUnreachableError(TitanConnectionError):
+    """No TCP connection possible – normally the TV is in standby."""
+
+
+class TitanCooldownError(TitanConnectionError):
+    """Request refused because the TV recently stopped responding."""
+
+
+class TitanUnsafeRequestError(TitanError):
+    """Request is on the list of requests known to crash the TV."""
+
+
+def _ssl_context() -> ssl.SSLContext:
+    # No CA loading (blocking disk I/O, and the cert is self-signed anyway).
+    ctx = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
+    ctx.check_hostname = False
+    ctx.verify_mode = ssl.CERT_NONE
+    # The TV's TLS stack is old; be lenient about ciphers / key sizes.
+    ctx.set_ciphers("DEFAULT:@SECLEVEL=1")
+    return ctx
+
+
+class TitanTV:
+    def __init__(
+        self,
+        host: str,
+        username: str | None = None,
+        password: str | None = None,
+        *,
+        port: int = DEFAULT_PORT,
+        min_interval: float = DEFAULT_MIN_INTERVAL,
+        timeout: float = DEFAULT_TIMEOUT,
+        client: httpx.AsyncClient | None = None,
+    ) -> None:
+        self.host = host
+        self.base_url = f"https://{host}:{port}/{API_VERSION}/"
+        self.min_interval = min_interval
+        self._auth = httpx.DigestAuth(username, password) if username else None
+        self._own_client = client is None
+        self._client = client or httpx.AsyncClient(
+            verify=_ssl_context(), timeout=httpx.Timeout(timeout, connect=CONNECT_TIMEOUT)
+        )
+        self._lock = asyncio.Lock()
+        self._last_request = 0.0
+        self._cooldown = 0.0
+        self._cooldown_until = 0.0
+
+    async def close(self) -> None:
+        if self._own_client:
+            await self._client.aclose()
+
+    async def __aenter__(self) -> "TitanTV":
+        return self
+
+    async def __aexit__(self, *exc: object) -> None:
+        await self.close()
+
+    def set_credentials(self, username: str, password: str) -> None:
+        self._auth = httpx.DigestAuth(username, password)
+
+    # ------------------------------------------------------------------ core
+
+    async def request(
+        self,
+        method: str,
+        path: str,
+        body: Any = None,
+        *,
+        auth: bool = True,
+        auth_override: httpx.Auth | None = None,
+        allow_unsafe: bool = False,
+    ) -> Any:
+        """Send one throttled request and return the decoded JSON (or None)."""
+        path = path.strip("/")
+        reason = UNSAFE_REQUESTS.get((method.upper(), path))
+        if reason and not allow_unsafe:
+            raise TitanUnsafeRequestError(f"{method} {path} gesperrt: {reason}")
+        url = self.base_url + path
+        content = None
+        headers = {}
+        if body is not None:
+            content = json.dumps(body, separators=(",", ":")).encode()
+            headers["Content-Type"] = "application/json"
+        use_auth = auth_override or (self._auth if auth else None)
+
+        async with self._lock:
+            remaining = self._cooldown_until - time.monotonic()
+            if remaining > 0:
+                raise TitanCooldownError(
+                    f"{method} {path}: TV hat zuletzt nicht geantwortet, "
+                    f"Pause noch {remaining:.0f} s"
+                )
+            wait = self._last_request + self.min_interval - time.monotonic()
+            if wait > 0:
+                await asyncio.sleep(wait)
+            try:
+                resp = await self._client.request(
+                    method, url, content=content, headers=headers, auth=use_auth
+                )
+            except (httpx.ConnectError, httpx.ConnectTimeout) as err:
+                # TV off / standby: not a wedged API, so no cooldown.
+                raise TitanUnreachableError(f"{method} {path}: {err!r}") from err
+            except (httpx.TimeoutException, httpx.TransportError) as err:
+                # Connected but no (valid) answer: API most likely wedged.
+                self._cooldown = min(
+                    max(self._cooldown * 2, COOLDOWN_START), COOLDOWN_MAX
+                )
+                self._cooldown_until = time.monotonic() + self._cooldown
+                raise TitanConnectionError(f"{method} {path}: {err!r}") from err
+            finally:
+                self._last_request = time.monotonic()
+            self._cooldown = 0.0
+
+        if resp.status_code == 401:
+            raise TitanAuthError(f"{method} {path}: 401 Unauthorized")
+        if resp.status_code >= 400:
+            raise TitanError(f"{method} {path}: HTTP {resp.status_code} {resp.text[:200]}")
+        if not resp.content.strip():
+            return None
+        try:
+            return resp.json()
+        except ValueError:
+            return resp.text
+
+    async def get(self, path: str, *, auth: bool = True) -> Any:
+        return await self.request("GET", path, auth=auth)
+
+    async def post(self, path: str, body: Any, *, auth: bool = True) -> Any:
+        return await self.request("POST", path, body, auth=auth)
+
+    # ------------------------------------------------------------- helpers
+
+    async def system(self) -> dict[str, Any]:
+        return await self.get("system", auth=False)
+
+    async def menu_structure(self) -> dict[str, Any]:
+        return await self.get("menuitems/settings/structure")
+
+    async def menu_current(self, node_ids: list[int]) -> dict[str, Any]:
+        return await self.post(
+            "menuitems/settings/current",
+            {"version": 1, "nodes": [{"nodeid": n} for n in node_ids]},
+        )
+
+    async def menu_update(self, node_id: int, string_id: str, data: dict[str, Any]) -> Any:
+        """Write a menu node. Titan OS requires ``version: 1``."""
+        return await self.post(
+            "menuitems/settings/update",
+            {
+                "version": 1,
+                "values": [
+                    {
+                        "value": {
+                            "Nodeid": node_id,
+                            "Controllable": True,
+                            "Available": True,
+                            "string_id": string_id,
+                            "data": data,
+                        }
+                    }
+                ],
+            },
+        )
+
+    # ------------------------------------------------------- high level API
+    # Each method sends only request sequences verified on the device
+    # (docs/api.md). Writes to the same node are not repeated needlessly.
+
+    async def ambilight_state(self) -> AmbilightState:
+        """Read style, brightness and saturation in a single request."""
+        values = _menu_values(await self.menu_current(m.STATE_NODES))
+        active = (values.get(m.NODE_STYLE) or {}).get("activenode_id")
+        style = None
+        if active in (m.NODE_VIDEO, m.NODE_AUDIO, m.NODE_COLOUR):
+            item = (values.get(active) or {}).get("selected_item")
+            style = m.STYLES_BY_ITEM.get(item)
+        return m.AmbilightState(
+            on=active is not None and active != m.NODE_OFF,
+            style=style,
+            brightness=(values.get(m.NODE_BRIGHTNESS) or {}).get("value"),
+            saturation=(values.get(m.NODE_SATURATION) or {}).get("value"),
+        )
+
+    async def ambilight_off(self) -> None:
+        await self.menu_update(m.NODE_STYLE, m.SID_STYLE, {"activenode_id": m.NODE_OFF})
+
+    async def set_ambilight_style(
+        self, key: str, current: AmbilightState | None = None
+    ) -> None:
+        """Activate a style. ``current`` (from ambilight_state) avoids
+        redundant writes – the TV ignores re-selecting the active item anyway."""
+        style = m.STYLES_BY_KEY[key]
+        cur_cat = current.style.category if current and current.on and current.style else None
+        cur_item = current.style.item if current and current.style else None
+        if cur_cat != style.category:
+            await self.menu_update(m.NODE_STYLE, m.SID_STYLE, {"activenode_id": style.category})
+        # fixed colour has a single entry; it is always selected
+        if style.category != m.NODE_COLOUR and cur_item != style.item:
+            await self.menu_update(style.category, style.category_sid, {"selected_item": style.item})
+
+    async def set_ambilight_brightness(self, value: int) -> None:
+        """Menu brightness 0..10 – works for all styles."""
+        value = max(0, min(m.BRIGHTNESS_MAX, int(value)))
+        await self.menu_update(m.NODE_BRIGHTNESS, m.SID_BRIGHTNESS, {"value": value})
+
+    async def set_ambilight_saturation(self, value: int) -> None:
+        value = max(m.SATURATION_MIN, min(m.SATURATION_MAX, int(value)))
+        await self.menu_update(m.NODE_SATURATION, m.SID_SATURATION, {"value": value})
+
+    async def set_ambilight_colour(
+        self,
+        hue: int,
+        saturation: int,
+        brightness: int = 255,
+        current: AmbilightState | None = None,
+    ) -> None:
+        """Fixed colour, HSB each 0..255 (hue 0 = red, 85 = green, 170 = blue).
+
+        Switches to the fixed-colour style first unless ``current`` says it
+        is already active. Note: after standby the TV shows its menu colour
+        again, the lounge colour has to be re-sent.
+        """
+        if not (current and current.on and current.style == m.FIXED_COLOUR):
+            await self.set_ambilight_style(m.FIXED_COLOUR.key, current)
+        clamp = lambda v: max(0, min(255, int(v)))  # noqa: E731
+        await self.post(
+            "ambilight/lounge",
+            {
+                "color": {"hue": clamp(hue), "saturation": clamp(saturation), "brightness": clamp(brightness)},
+                "colordelta": {"hue": 0, "saturation": 0, "brightness": 0},
+                "speed": 0,
+                "mode": "Default",
+            },
+        )
+
+    async def volume(self) -> Volume:
+        d = await self.get("audio/volume")
+        return m.Volume(current=d["current"], muted=d["muted"], min=d.get("min", 0), max=d.get("max", 60))
+
+    async def set_volume(self, current: int, muted: bool = False) -> None:
+        await self.post("audio/volume", {"muted": muted, "current": int(current)})
+
+    async def set_muted(self, muted: bool, current: Volume | None = None) -> None:
+        """Mute/unmute. ``audio/volume`` ignores the ``muted`` flag on Titan OS,
+        so this toggles with the Mute key – only if the state differs."""
+        if current is None:
+            current = await self.volume()
+        if current.muted != muted:
+            await self.send_key("Mute")
+
+    async def send_key(self, key: str) -> None:
+        await self.post("input/key", {"key": key})
+
+    async def standby(self) -> None:
+        await self.send_key("Standby")
+
+
+def _menu_values(response: Any) -> dict[int, dict[str, Any]]:
+    """Map Nodeid -> data from a menuitems/settings/current response."""
+    out: dict[int, dict[str, Any]] = {}
+
+    def walk(o: Any) -> None:
+        if isinstance(o, dict):
+            if isinstance(o.get("Nodeid"), int):
+                out[o["Nodeid"]] = o.get("data") or {}
+            for v in o.values():
+                walk(v)
+        elif isinstance(o, list):
+            for v in o:
+                walk(v)
+
+    walk(response)
+    return out

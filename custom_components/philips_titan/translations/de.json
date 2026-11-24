@@ -1,0 +1,60 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Philips TV (Titan OS)",
+        "description": "Der Fernseher muss eingeschaltet sein. Nach dem Absenden zeigt er eine PIN an.",
+        "data": {
+          "host": "Host",
+          "mac": "MAC-Adresse (optional, zum Einschalten per Wake-on-LAN)"
+        },
+        "data_description": {
+          "mac": "Wird automatisch ermittelt, wenn Home Assistant im selben Netz ist."
+        }
+      },
+      "pin": {
+        "title": "PIN eingeben",
+        "description": "Gib die PIN ein, die {name} anzeigt.",
+        "data": {
+          "pin": "PIN"
+        }
+      },
+      "reauth_confirm": {
+        "title": "Erneut koppeln",
+        "description": "{name} akzeptiert die gespeicherten Zugangsdaten nicht mehr. Schalte den Fernseher ein und fahre fort – er zeigt dann eine neue PIN an."
+      }
+    },
+    "error": {
+      "cannot_connect": "Keine Verbindung. Ist der Fernseher eingeschaltet?",
+      "not_supported": "Dieser Fernseher unterstützt kein PIN-Pairing (Digest).",
+      "pairing_failed": "Der Fernseher hat die Kopplung abgelehnt. Bitte erneut versuchen.",
+      "invalid_pin": "Falsche PIN. Der Fernseher zeigt jetzt eine neue PIN an."
+    },
+    "abort": {
+      "already_configured": "Dieser Fernseher ist bereits eingerichtet.",
+      "reauth_successful": "Erfolgreich neu gekoppelt."
+    }
+  },
+  "entity": {
+    "light": {
+      "ambilight": {
+        "name": "Ambilight"
+      }
+    },
+    "remote": {
+      "remote": {
+        "name": "Fernbedienung"
+      }
+    },
+    "number": {
+      "ambilight_saturation": {
+        "name": "Ambilight-Sättigung"
+      }
+    }
+  },
+  "exceptions": {
+    "unknown_key": {
+      "message": "Unbekannte Taste(n): {keys}. Gültig: {valid}"
+    }
+  }
+}
