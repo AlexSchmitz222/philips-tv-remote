@@ -10,7 +10,8 @@
   channel numbers via `media_player.play_media` with type `channel`, mute via the Mute key.
 - New entities: input sensor (home / satellite / TV / HDMI / other app), volume in TV
   steps (0–60), optional Ambilight colour sensor (average LED colour, `rgb_color`).
-- `notifychange` as a best-effort trigger for immediate refreshes.
+- No `notifychange` long-poll: abandoned long-polls pile up on the TV until it answers 503
+  (an intermediate development version used it).
 - MAC address from the TV (`network/devices`), model and serial in the device info.
 - Diagnostics download (credentials, MAC, IP and serial redacted).
 - Integration icon.

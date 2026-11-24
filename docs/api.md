@@ -70,7 +70,13 @@ vom mitgeschickten Stand unterscheidet, sonst bleibt die Anfrage offen (Read-Tim
   noch auf `menuitems/settings/version: 0`. Die normale API blieb dabei gesund.
   Mögliche Ursachen (ungeprüft): der Fernseher hält pro gekoppeltem Gerät nur eine Long-Poll-Anfrage und hängt noch an
   einer verwaisten, oder eine andere Integration (z. B. `philips_js`, nutzt `notifychange`) beeinflusst den Dienst.
-  → Die Integration nutzt `notifychange` nur als Beschleuniger; der Zustand kommt immer aus der Abfrage.
+- **Nach dem Stromtrennen (23:12):** leerer Stand sofort beantwortet. Von drei Änderungen kam aber nur eine an
+  (die HA-Integration hielt parallel eigene Long-Polls offen). Mit deaktivierter Integration (23:15): leerer Stand
+  ohne Antwort, keine Meldungen, dann **HTTP 503**. Die normale API blieb gesund.
+- **Erklärung (plausibel, nicht bewiesen):** Bricht ein Client eine wartende Anfrage ab, bleibt sie auf dem Fernseher
+  offen. Sie sammeln sich an, bis der Dienst nur noch 503 liefert; ein Neustart räumt auf.
+- **Konsequenz:** Die Integration verwendet `notifychange` **nicht** (seit 0.2.0). Nur für Experimente, danach
+  am besten Strom trennen.
 
 ## Andere Dienste auf dem Gerät
 | Port | Dienst | Bemerkung |
@@ -95,6 +101,7 @@ AES-CBC mit den ersten 16 Bytes des gemeinsamen Schlüssels, die ersten 16 Bytes
 | `ambilight/currentconfiguration` | wirkt nicht | der Fernseher setzt sofort den Menüwert wieder durch |
 | `input/key` | ok | `{"key":"VolumeUp"}` → Lautstärke +1; Antwort leer |
 | `audio/volume` | ok | `current` wird übernommen, **`muted` wird ignoriert** |
+| `input/key` `Digit0`–`Digit9` | ok | Senderwahl ohne `Confirm`: „5004“, „5005“ mit 1 s Abstand → Fernseher schaltet um (Streaming, 2026-11-24). `activities/tv` bleibt dabei leer, der Sender ist per API nicht lesbar |
 | `input/key` `Mute` | ok | schaltet um; Zustand danach in `GET audio/volume` (`muted`) |
 | Menü 710 `data.value` | ok | Helligkeit 0–10, wirkt **sichtbar** (getestet 2026-11-24). Der Wert ist offenbar **pro Stil** gespeichert: Standard 5, Kino 10, feste Farbe 5 → nach jedem Stilwechsel neu lesen |
 | Menü 720 `data.value` | ok (gespeichert) | Sättigung −2..2, wird zurückgelesen; wirkt **sichtbar** (−2 blass, +2 kräftig; getestet 2026-11-24) |

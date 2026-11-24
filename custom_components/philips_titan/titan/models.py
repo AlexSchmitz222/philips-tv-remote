@@ -102,7 +102,7 @@ KEYS = (
     "CursorUp", "CursorDown", "CursorLeft", "CursorRight", "Confirm", "Back",
     "Home", "Options", "Info", "Find", "Adjust", "Source", "WatchTV",
     "ChannelStepUp", "ChannelStepDown",
-    # Digits: untested on Titan OS. On HDMI they may be forwarded via CEC.
+    # Digits: tested – "5004", "5005" switched streaming channels (1 s apart).
     "Digit0", "Digit1", "Digit2", "Digit3", "Digit4",
     "Digit5", "Digit6", "Digit7", "Digit8", "Digit9", "Dot",
     "PlayPause", "Play", "Pause", "Stop", "Rewind", "FastForward",

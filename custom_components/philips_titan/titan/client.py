@@ -333,9 +333,13 @@ class TitanTV:
         previous result; ``{}`` returns the full state immediately). Returns
         None if nothing changed within ``timeout``.
 
-        Reports menu changes (all of Ambilight), power, context and channel
-        within ~0.1 s – but not volume. Runs outside the request lock (it
-        would block every other request), and its read timeout is the normal
+        WARNING – not for continuous use on Titan OS: a long-poll that the
+        client abandons (timeout) apparently stays open on the TV. They pile
+        up until the TV only answers 503 (2026-11-24); a power cycle clears
+        it. Notifications also arrived only sporadically. The HA integration
+        therefore polls instead. Kept for experiments.
+
+        Runs outside the request lock, and its read timeout is the normal
         "no change" case, so it never starts a cooldown.
         """
         if time.monotonic() < self._cooldown_until:

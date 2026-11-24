@@ -15,11 +15,5 @@ MAX_SCAN_INTERVAL = 300
 # How long after Wake-on-LAN before the first check (TV boot time).
 WAKE_REFRESH_DELAY = 15
 
-# notifychange long-poll: how long one request stays open, pause after an
-# error, and minimum time between two long-poll starts (no busy loop).
-NOTIFY_TIMEOUT = 30
-NOTIFY_RETRY = 15
-NOTIFY_MIN_GAP = 1.0
-
 # Option: read the LED colours (ambilight/processed) on every poll.
 CONF_AMBILIGHT_COLORS = "ambilight_colors"

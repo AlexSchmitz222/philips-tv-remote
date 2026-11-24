@@ -130,33 +130,20 @@ async def test_media_keys(hass: HomeAssistant, fake_tv) -> None:
     assert fake_tv.keys == ["Play", "Pause", "PlayPause", "Stop", "Next", "Previous"]
 
 
-async def test_remote_change_arrives_via_notifychange(hass: HomeAssistant, fake_tv) -> None:
-    """A change made on the TV shows up long before the next 5 s poll."""
-    import asyncio
-    await setup(hass)
-    await asyncio.sleep(1.2)  # let the long-poll start (baseline + waiting request)
-    polls_before = fake_tv.log.count(("GET", "audio/volume"))
-    fake_tv.remote_menu_change(300, {"activenode_id": 330})  # user picks an audio style
-    for _ in range(40):
-        await asyncio.sleep(0.05)
-        await hass.async_block_till_done()
-        if hass.states.get(LIGHT).attributes.get("effect") == "Lumina":
-            break
-    assert hass.states.get(LIGHT).attributes.get("effect") == "Lumina"
-    assert fake_tv.log.count(("GET", "audio/volume")) == polls_before + 1  # one triggered refresh
-
-
 async def test_source_from_context(hass: HomeAssistant, fake_tv) -> None:
+    entry = await setup(hass)
+    fake_tv.remote_context_change("WatchExtension")
+    await entry.runtime_data.async_refresh()
+    await hass.async_block_till_done()
+    assert hass.states.get(PLAYER).attributes.get("source") == "WatchExtension"
+
+
+async def test_no_notifychange_requests(hass: HomeAssistant, fake_tv) -> None:
+    """Abandoned long-polls pile up on the real TV (503) – never use it."""
     import asyncio
     await setup(hass)
-    await asyncio.sleep(1.2)
-    fake_tv.remote_context_change("WatchExtension")
-    for _ in range(40):
-        await asyncio.sleep(0.05)
-        await hass.async_block_till_done()
-        if hass.states.get(PLAYER).attributes.get("source") == "WatchExtension":
-            break
-    assert hass.states.get(PLAYER).attributes.get("source") == "WatchExtension"
+    await asyncio.sleep(1.5)
+    assert not any(p == "notifychange" for _, p in fake_tv.log)
 
 
 async def test_works_without_notifychange(hass: HomeAssistant, fake_tv) -> None:
