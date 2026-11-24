@@ -6,3 +6,5 @@ credentials.json
 # Rohdaten vom Gerät (enthalten u. a. Seriennummern)
 dumps/
 .venv-ha/
+# MQTT-Zugangsdaten (Titan OS)
+mqtt_credentials.json

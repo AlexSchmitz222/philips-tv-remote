@@ -56,6 +56,12 @@ Zweiter Durchlauf (2026-11-24 21:02) mit gesperrtem `lounge`-GET: alle Endpunkte
 Dritter Durchlauf am 2026-11-24 um 22:14, alle Endpunkte einzeln: kein Absturz.
 
 ## `notifychange` (Long-Poll)
+Hintergrund (Recherche 2026-11-24): Laut Homey-App (PR lucasvdh/codes.lucasvdh.philips-jointspace#87) beantwortet
+der TV eine Long-Poll-Anfrage ohne Änderung **nie**, sondern schließt die Verbindung nach 60–120 s (einmal ~180 s);
+ein korrekter Client hält **eine** Anfrage offen und wartet länger als der TV (`haphilipsjs`: 130 s).
+`haphilipsjs` nutzt `notifychange` nur, wenn `/system` ein Feld `notifyChange` meldet – dieser TV meldet es **nicht**.
+Unsere Client-Timeouts (12–45 s) lagen darunter → vermutlich gestapelte offene Anfragen → 503.
+
 `POST notifychange {"notification": <letzter bekannter Stand>}` – der Fernseher antwortet, sobald sich etwas
 vom mitgeschickten Stand unterscheidet, sonst bleibt die Anfrage offen (Read-Timeout auf Client-Seite).
 - Leere Notification `{}` → sofortige Antwort mit dem Gesamtstand: `context`, `powerstate` (per GET 404!),
@@ -84,7 +90,29 @@ vom mitgeschickten Stand unterscheidet, sonst bleibt die Anfrage offen (Read-Tim
 | 1925 / 1926 | JointSpace HTTP / HTTPS | |
 | 8008 / 8009 | **Google Cast** | `/setup/eureka_info`: Name `PHILIPS_TV_65PQS8651/12`; HA-Cast-Integration nutzbar (Status nur für Cast-Wiedergaben) |
 | 49153 | **UPnP/DLNA MediaRenderer** | AVTransport, RenderingControl, ConnectionManager (`/description.xml`) |
-| 49152, 56789 | unbekannt | offen, nicht untersucht |
+| 8883 | **Titan OS MQTT** | siehe unten |
+| 56789 / 56790 | **DIAL** | siehe unten |
+| 49152 | unbekannt | offen, nicht untersucht |
+
+## Titan OS MQTT (Port 8883)
+Eigener Dienst neben JointSpace, MQTT v5 über TLS (selbst signiert, Verbindung per IP ohne Prüfung).
+Protokoll nach github.com/bedirhanyildirim/philips-titan-os-55pml9019-remote, hier nachgeprüft (2026-11-24):
+- **Ohne Anmeldung:** Verbindung ok, `info` und `channels/state` abonnieren → „Not authorized“.
+- **Pairing** (`scripts/mqtt_probe.py pair`): `pairing/start` `{"type":"mobile"}` → Challenge + PIN am TV
+  (der TV spricht von der „Titan OS App“) → `pairing/finish` mit `hex(HMAC-SHA256(PIN, challenge))` →
+  Benutzername/Passwort. **Funktioniert** am 65PQS8651/12.
+- **Mit Anmeldung:** `info` und `channels/state` abonnierbar (retained), `#` nicht.
+- **`info`:** `mqttv_version` v2.12.0, `fw_version` 066.002.126.131, Modell, Markt DE, MAC-Adressen,
+  `capabilities.rc.longpress`, `mqttv_topics`: `keyboard`, `rc`, `deeplink_v2`, `pairing/*`, `proxy_v2`,
+  `settings`, `screenshot`, `screencast`, `screencast/keepalive`, `automation/set`.
+  (Die Quelle beschreibt `deeplink`/`proxy`; hier heißen sie `_v2`.)
+- **`channels/state`:** echte **Push-Meldung**, sofort bei jedem Wechsel: `{"state":"launcher"}` auf dem
+  Startbildschirm, `{"state":"inactive"}` in einer App oder auf einer Quelle; `channel` bisher immer `null`.
+- Noch nicht untersucht: `settings`, `automation/set`, `rc`, `deeplink_v2`, `screenshot`.
+
+## DIAL (Port 56789/56790)
+Offen. Laut Quelle ohne Pairing: `POST http://<tv>:56789/apps/<Name>` (YouTube, Netflix,
+AmazonInstantVideo …, teils mit `Origin`-Header), Gerätebeschreibung `http://<tv>:56790/dd.xml`. Nicht getestet.
 
 ## `/system`, verschlüsselte Felder
 AES-CBC mit den ersten 16 Bytes des gemeinsamen Schlüssels, die ersten 16 Bytes der Daten sind der IV, PKCS7
