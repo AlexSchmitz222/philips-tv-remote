@@ -59,7 +59,7 @@ Zweiter Durchlauf (2026-11-24 21:02) mit gesperrtem `lounge`-GET: alle Endpunkte
 | 730 | DESC_ID_WALL_L151 | WALL_COLOR | – | – |
 | 740 | ID_SWTH_L148 | LIST | ambilight_tv_switch_off | Ausschaltverhalten (beide Einträge haben `enum_id` 1) |
 
-| `screenstate` | ok, aber veraltet | GET meldet immer „Off“ (auch nach POST On). `POST {"screenstate":"Off"/"On"}` → HTTP 200; sichtbare Wirkung noch offen |
+| `screenstate` | ok, aber veraltet | GET meldet immer „Off“ (auch nach POST On). `POST {"screenstate":"Off"/"On"}` → HTTP 200, aber **keine Wirkung** (Bild blieb an, beobachtet 2026-11-25) |
 | `network/devices` | ok | je Schnittstelle `mac`, `ip`, `type`, **`wake-on-lan`** (Enabled/Disabled) → MAC für WoL ohne ARP |
 | `channels`, `channels/current`, `sources/current` | 403 | |
 | `recordings/list`, `activities/browser`, `HueLamp/power` | 404 | |
