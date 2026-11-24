@@ -87,14 +87,14 @@ async def test_standby_and_wake(hass: HomeAssistant, fake_tv) -> None:
     assert hass.states.get(LIGHT).state == "unavailable"
 
     # poll while off: no error, stays off
-    async_fire_time_changed(hass, dt_util.utcnow() + timedelta(seconds=31))
+    async_fire_time_changed(hass, dt_util.utcnow() + timedelta(seconds=6))
     await hass.async_block_till_done()
     assert hass.states.get(PLAYER).state == "off"
 
     await hass.services.async_call("media_player", "turn_on", {"entity_id": PLAYER}, blocking=True)
     fake_tv.wake.assert_called_once_with("bc:c2:d9:64:15:b8")
     fake_tv.on = True
-    async_fire_time_changed(hass, dt_util.utcnow() + timedelta(seconds=60))
+    async_fire_time_changed(hass, dt_util.utcnow() + timedelta(seconds=20))
     await hass.async_block_till_done()
     assert hass.states.get(PLAYER).state == "on"
 
@@ -103,10 +103,10 @@ async def test_lounge_colour_restored_after_standby(hass: HomeAssistant, fake_tv
     await setup(hass)
     await hass.services.async_call("light", "turn_on", {"entity_id": LIGHT, "hs_color": [120, 100]}, blocking=True)
     fake_tv.on = False
-    async_fire_time_changed(hass, dt_util.utcnow() + timedelta(seconds=31))
+    async_fire_time_changed(hass, dt_util.utcnow() + timedelta(seconds=6))
     await hass.async_block_till_done()
     fake_tv.on, fake_tv.lounge = True, None  # TV forgot the lounge colour
-    async_fire_time_changed(hass, dt_util.utcnow() + timedelta(seconds=62))
+    async_fire_time_changed(hass, dt_util.utcnow() + timedelta(seconds=12))
     await hass.async_block_till_done()
     assert fake_tv.lounge == {"hue": 85, "saturation": 255, "brightness": 255}
 
@@ -118,3 +118,53 @@ async def test_saturation(hass: HomeAssistant, fake_tv) -> None:
     await hass.services.async_call("number", "set_value", {"entity_id": ent, "value": -2}, blocking=True)
     assert fake_tv.menu[720]["value"] == -2
     assert hass.states.get(ent).state == "-2"
+
+
+async def test_media_keys(hass: HomeAssistant, fake_tv) -> None:
+    await setup(hass)
+    for service in ("media_play", "media_pause", "media_play_pause", "media_stop",
+                    "media_next_track", "media_previous_track"):
+        await hass.services.async_call("media_player", service, {"entity_id": PLAYER}, blocking=True)
+    assert fake_tv.keys == ["Play", "Pause", "PlayPause", "Stop", "Next", "Previous"]
+
+
+async def test_remote_change_arrives_via_notifychange(hass: HomeAssistant, fake_tv) -> None:
+    """A change made on the TV shows up long before the next 5 s poll."""
+    import asyncio
+    await setup(hass)
+    await asyncio.sleep(1.2)  # let the long-poll start (baseline + waiting request)
+    polls_before = fake_tv.log.count(("GET", "audio/volume"))
+    fake_tv.remote_menu_change(300, {"activenode_id": 330})  # user picks an audio style
+    for _ in range(40):
+        await asyncio.sleep(0.05)
+        await hass.async_block_till_done()
+        if hass.states.get(LIGHT).attributes.get("effect") == "Lumina":
+            break
+    assert hass.states.get(LIGHT).attributes.get("effect") == "Lumina"
+    assert fake_tv.log.count(("GET", "audio/volume")) == polls_before + 1  # one triggered refresh
+
+
+async def test_source_from_context(hass: HomeAssistant, fake_tv) -> None:
+    import asyncio
+    await setup(hass)
+    await asyncio.sleep(1.2)
+    fake_tv.remote_context_change("WatchExtension")
+    for _ in range(40):
+        await asyncio.sleep(0.05)
+        await hass.async_block_till_done()
+        if hass.states.get(PLAYER).attributes.get("source") == "WatchExtension":
+            break
+    assert hass.states.get(PLAYER).attributes.get("source") == "WatchExtension"
+
+
+async def test_works_without_notifychange(hass: HomeAssistant, fake_tv) -> None:
+    fake_tv.notify_supported = False
+    await setup(hass)
+    assert hass.states.get(LIGHT).state == "on"
+
+
+async def test_device_info(hass: HomeAssistant, fake_tv) -> None:
+    from homeassistant.helpers import device_registry as dr
+    entry = await setup(hass)
+    (dev,) = dr.async_entries_for_config_entry(dr.async_get(hass), entry.entry_id)
+    assert dev.model == "65PQS8651/12" and dev.model_id == "TPN266E" and dev.sw_version is None

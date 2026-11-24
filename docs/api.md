@@ -48,6 +48,43 @@ Zweiter Durchlauf (2026-11-24 21:02) mit gesperrtem `lounge`-GET: alle Endpunkte
 | 730 | DESC_ID_WALL_L151 | WALL_COLOR | – | – |
 | 740 | ID_SWTH_L148 | LIST | ambilight_tv_switch_off | Ausschaltverhalten (beide Einträge haben `enum_id` 1) |
 
+| `screenstate` | ok, aber veraltet | GET meldete „Off“, während `notifychange` „On“ lieferte |
+| `network/devices` | ok | je Schnittstelle `mac`, `ip`, `type`, **`wake-on-lan`** (Enabled/Disabled) → MAC für WoL ohne ARP |
+| `channels`, `channels/current`, `sources/current` | 403 | |
+| `recordings/list`, `activities/browser`, `HueLamp/power` | 404 | |
+
+Dritter Durchlauf am 2026-11-24 um 22:14, alle Endpunkte einzeln: kein Absturz.
+
+## `notifychange` (Long-Poll)
+`POST notifychange {"notification": <letzter bekannter Stand>}` – der Fernseher antwortet, sobald sich etwas
+vom mitgeschickten Stand unterscheidet, sonst bleibt die Anfrage offen (Read-Timeout auf Client-Seite).
+- Leere Notification `{}` → sofortige Antwort mit dem Gesamtstand: `context`, `powerstate` (per GET 404!),
+  `activities/tv`, `screenstate`, `network/devices`, `channeldb/tv`, `system/epgsource`,
+  `system/storage/status`, `input/textentry`, `input/pointer`.
+- **Änderung an einem Menüknoten** (Ambilight-Helligkeit 710) → Meldung nach 0,08 s.
+- **Lautstärke** (`audio/volume`) → **keine** Meldung, die braucht weiter Polling.
+- Eine Teilmenge als Notification (z. B. nur `audio/volume`, `powerstate`) blieb ohne Antwort offen.
+- Eine offene Long-Poll-Anfrage parallel zu normalen Anfragen war unproblematisch.
+- **Unzuverlässig:** Ab etwa 22:20, nach einem abgebrochenen HA-Live-Test, kam auf `notifychange` gar keine Antwort mehr:
+  weder auf `{}` (drei Versuche, je 45 s) noch auf Ambilight-Änderungen während einer offenen Anfrage (drei Versuche),
+  noch auf `menuitems/settings/version: 0`. Die normale API blieb dabei gesund.
+  Mögliche Ursachen (ungeprüft): der Fernseher hält pro gekoppeltem Gerät nur eine Long-Poll-Anfrage und hängt noch an
+  einer verwaisten, oder eine andere Integration (z. B. `philips_js`, nutzt `notifychange`) beeinflusst den Dienst.
+  → Die Integration nutzt `notifychange` nur als Beschleuniger; der Zustand kommt immer aus der Abfrage.
+
+## Andere Dienste auf dem Gerät
+| Port | Dienst | Bemerkung |
+|---|---|---|
+| 1925 / 1926 | JointSpace HTTP / HTTPS | |
+| 8008 / 8009 | **Google Cast** | `/setup/eureka_info`: Name `PHILIPS_TV_65PQS8651/12`; HA-Cast-Integration nutzbar (Status nur für Cast-Wiedergaben) |
+| 49153 | **UPnP/DLNA MediaRenderer** | AVTransport, RenderingControl, ConnectionManager (`/description.xml`) |
+| 49152, 56789 | unbekannt | offen, nicht untersucht |
+
+## `/system`, verschlüsselte Felder
+AES-CBC mit den ersten 16 Bytes des gemeinsamen Schlüssels, die ersten 16 Bytes der Daten sind der IV, PKCS7
+(wie `haphilipsjs.cbc_decode`): `model` = TPN266E, `serialnumber` lesbar, `softwareversion` = `-000.000.000.000`
+(Platzhalter).
+
 ## Schreiben (POST)
 | Pfad | Status | Bemerkung |
 |---|---|---|
@@ -88,3 +125,5 @@ AI (321) und Kino (324) melden beide NATURAL. Über `currentconfiguration` lasse
 ## Offene Fragen
 - Wirkt 710 auch auf Audio-Stile und feste Farbe? Wirkt 720 sichtbar?
 - Matter (`featuring.matter`) als zweiter Weg.
+- Meldet `notifychange` auch Ambilight-Änderungen, die per Fernbedienung gemacht werden?
+- Folgt `GET audio/volume` der echten Fernbedienung? Laut ha-philips-titanos nicht; bei uns ging der Wert zwischen zwei Tests von 16 auf 6.

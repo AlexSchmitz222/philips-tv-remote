@@ -20,8 +20,18 @@ async def async_setup_entry(hass: HomeAssistant, entry: TitanConfigEntry) -> boo
         await tv.close()
         raise
     entry.runtime_data = coordinator
+    if coordinator.data.on:
+        await coordinator.async_load_system_info()
+    entry.async_on_unload(entry.add_update_listener(_async_options_updated))
+    entry.async_create_background_task(
+        hass, coordinator.async_notify_loop(), f"{entry.title} notifychange"
+    )
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
     return True
+
+
+async def _async_options_updated(hass: HomeAssistant, entry: TitanConfigEntry) -> None:
+    await hass.config_entries.async_reload(entry.entry_id)
 
 
 async def async_unload_entry(hass: HomeAssistant, entry: TitanConfigEntry) -> bool:

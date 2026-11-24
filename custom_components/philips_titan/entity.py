@@ -25,11 +25,15 @@ class TitanEntity(CoordinatorEntity[TitanCoordinator]):
         base_id = entry.unique_id or entry.entry_id
         self._attr_unique_id = f"{base_id}_{key}"
         mac = entry.data.get(CONF_MAC)
+        info = coordinator.system_info
         self._attr_device_info = DeviceInfo(
             identifiers={(DOMAIN, base_id)},
             connections={(CONNECTION_NETWORK_MAC, format_mac(mac))} if mac else set(),
             manufacturer="Philips",
-            model=entry.title,
+            model=info.get("name") or entry.title,
+            model_id=info.get("model"),
+            serial_number=info.get("serial"),
+            sw_version=info.get("sw_version"),
             name=entry.title,
         )
 

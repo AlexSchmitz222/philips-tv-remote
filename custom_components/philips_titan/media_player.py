@@ -19,7 +19,23 @@ BASE_FEATURES = (
     | MediaPlayerEntityFeature.VOLUME_SET
     | MediaPlayerEntityFeature.VOLUME_STEP
     | MediaPlayerEntityFeature.VOLUME_MUTE
+    | MediaPlayerEntityFeature.PLAY
+    | MediaPlayerEntityFeature.PAUSE
+    | MediaPlayerEntityFeature.STOP
+    | MediaPlayerEntityFeature.NEXT_TRACK
+    | MediaPlayerEntityFeature.PREVIOUS_TRACK
 )
+
+# Playback is controlled with remote keys. The API does not report whether
+# something is playing, so the entity stays "on" and only sends commands.
+MEDIA_KEYS = {
+    "play": "Play",
+    "pause": "Pause",
+    "play_pause": "PlayPause",
+    "stop": "Stop",
+    "next": "Next",
+    "previous": "Previous",
+}
 
 
 async def async_setup_entry(
@@ -41,6 +57,12 @@ class TitanMediaPlayer(TitanEntity, MediaPlayerEntity):
     @property
     def state(self) -> MediaPlayerState:
         return MediaPlayerState.ON if self.tv_on else MediaPlayerState.OFF
+
+    @property
+    def source(self) -> str | None:
+        """Raw activity context, e.g. "WatchExtension" while an HDMI device is shown."""
+        data = self.coordinator.data
+        return data.context if data and data.on else None
 
     @property
     def _volume(self):
@@ -91,3 +113,27 @@ class TitanMediaPlayer(TitanEntity, MediaPlayerEntity):
         await self.coordinator.tv.send_key("VolumeDown")
         if v := self._volume:
             self.coordinator.set_volume_optimistic(current=max(v.min, v.current - 1))
+
+    @tv_command
+    async def async_media_play(self) -> None:
+        await self.coordinator.tv.send_key(MEDIA_KEYS["play"])
+
+    @tv_command
+    async def async_media_pause(self) -> None:
+        await self.coordinator.tv.send_key(MEDIA_KEYS["pause"])
+
+    @tv_command
+    async def async_media_play_pause(self) -> None:
+        await self.coordinator.tv.send_key(MEDIA_KEYS["play_pause"])
+
+    @tv_command
+    async def async_media_stop(self) -> None:
+        await self.coordinator.tv.send_key(MEDIA_KEYS["stop"])
+
+    @tv_command
+    async def async_media_next_track(self) -> None:
+        await self.coordinator.tv.send_key(MEDIA_KEYS["next"])
+
+    @tv_command
+    async def async_media_previous_track(self) -> None:
+        await self.coordinator.tv.send_key(MEDIA_KEYS["previous"])

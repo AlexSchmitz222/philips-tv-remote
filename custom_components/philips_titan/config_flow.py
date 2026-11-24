@@ -8,11 +8,31 @@ from typing import Any
 
 import voluptuous as vol
 
-from homeassistant.config_entries import SOURCE_REAUTH, ConfigFlow, ConfigFlowResult
-from homeassistant.const import CONF_HOST, CONF_MAC, CONF_PASSWORD, CONF_PIN, CONF_USERNAME
+from homeassistant.config_entries import (
+    SOURCE_REAUTH,
+    ConfigEntry,
+    ConfigFlow,
+    ConfigFlowResult,
+    OptionsFlow,
+)
+from homeassistant.const import (
+    CONF_HOST,
+    CONF_MAC,
+    CONF_PASSWORD,
+    CONF_PIN,
+    CONF_SCAN_INTERVAL,
+    CONF_USERNAME,
+)
+from homeassistant.core import callback
 from homeassistant.helpers.device_registry import format_mac
 
-from .const import DOMAIN, LOGGER
+from .const import (
+    DEFAULT_SCAN_INTERVAL,
+    DOMAIN,
+    LOGGER,
+    MAX_SCAN_INTERVAL,
+    MIN_SCAN_INTERVAL,
+)
 from .titan import PairingSession, TitanTV, pair_grant, pair_request
 from .titan.client import TitanConnectionError, TitanError
 
@@ -32,6 +52,11 @@ def arp_lookup(host: str) -> str | None:
 
 class TitanConfigFlow(ConfigFlow, domain=DOMAIN):
     VERSION = 1
+
+    @staticmethod
+    @callback
+    def async_get_options_flow(config_entry: ConfigEntry) -> OptionsFlow:
+        return TitanOptionsFlow()
 
     def __init__(self) -> None:
         self._host: str | None = None
@@ -123,7 +148,18 @@ class TitanConfigFlow(ConfigFlow, domain=DOMAIN):
         )
 
     async def _finish(self) -> ConfigFlowResult:
-        assert self._session and self._host
+        assert self._session and self._host and self._tv
+        if not self._mac:
+            # Paired now -> ask the TV itself (network/devices reports WoL state).
+            self._tv.set_credentials(self._session.username, self._session.password)
+            try:
+                if mac := await self._tv.wol_mac():
+                    self._mac = format_mac(mac)
+            except TitanError as err:
+                LOGGER.debug("network/devices failed: %s", err)
+            if self._mac and self.source != SOURCE_REAUTH:
+                await self.async_set_unique_id(self._mac)
+                self._abort_if_unique_id_configured(updates={CONF_HOST: self._host})
         data = {
             CONF_HOST: self._host,
             CONF_USERNAME: self._session.username,
@@ -163,4 +199,21 @@ class TitanConfigFlow(ConfigFlow, domain=DOMAIN):
             step_id="reauth_confirm",
             errors=errors,
             description_placeholders={"name": self._name},
+        )
+
+
+class TitanOptionsFlow(OptionsFlow):
+    async def async_step_init(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
+        if user_input is not None:
+            return self.async_create_entry(data=user_input)
+        current = self.config_entry.options.get(CONF_SCAN_INTERVAL, DEFAULT_SCAN_INTERVAL)
+        return self.async_show_form(
+            step_id="init",
+            data_schema=vol.Schema(
+                {
+                    vol.Required(CONF_SCAN_INTERVAL, default=current): vol.All(
+                        vol.Coerce(int), vol.Range(min=MIN_SCAN_INTERVAL, max=MAX_SCAN_INTERVAL)
+                    )
+                }
+            ),
         )

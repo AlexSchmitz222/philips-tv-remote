@@ -56,5 +56,18 @@
     "unknown_key": {
       "message": "Unbekannte Taste(n): {keys}. Gültig: {valid}"
     }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Optionen",
+        "data": {
+          "scan_interval": "Abfrageintervall (Sekunden)"
+        },
+        "data_description": {
+          "scan_interval": "Wie oft der Fernseher nach seinem Zustand gefragt wird (2–300 s). Zwei Anfragen pro Abfrage."
+        }
+      }
+    }
   }
 }

@@ -186,3 +186,47 @@ def test_unreachable_no_cooldown():
                 await tv.volume()
     run(go())
     assert len(calls) == 3  # standby: every poll may try again
+
+
+def test_notify_change_timeout_is_no_change_and_no_cooldown():
+    def handler(request):
+        raise httpx.ReadTimeout("idle", request=request)
+
+    async def go():
+        tv = TitanTV("tv", min_interval=0, client=httpx.AsyncClient(transport=httpx.MockTransport(handler)))
+        assert await tv.notify_change({"x": 1}, timeout=0.1) is None
+        assert tv._cooldown_until == 0  # long-poll timeout must not look like a hang
+    run(go())
+
+
+def test_notify_change_returns_state():
+    def handler(request):
+        assert json.loads(request.content) == {"notification": {}}
+        return httpx.Response(200, json={"powerstate": {"powerstate": "On"}})
+
+    async def go():
+        tv = TitanTV("tv", min_interval=0, client=httpx.AsyncClient(transport=httpx.MockTransport(handler)))
+        assert await tv.notify_change() == {"powerstate": {"powerstate": "On"}}
+    run(go())
+
+
+def test_wol_mac_prefers_enabled_ethernet():
+    def handler(request):
+        return httpx.Response(200, json=[
+            {"id": "wifi0", "mac": "44:ef:26:5a:8a:aa", "type": "Wifi", "wake-on-lan": "Disabled"},
+            {"id": "eth0", "mac": "bc:c2:d9:64:15:b8", "ip": "1.2.3.4", "type": "Ethernet", "wake-on-lan": "Enabled"},
+        ])
+
+    async def go():
+        tv = TitanTV("tv", min_interval=0, client=httpx.AsyncClient(transport=httpx.MockTransport(handler)))
+        assert await tv.wol_mac() == "bc:c2:d9:64:15:b8"
+    run(go())
+
+
+def test_system_info_decrypts_real_sample():
+    from philips_titan.system import system_info
+    # model_encrypted from the real 65PQS8651/12 (/system, 2026-11-24)
+    info = system_info({"name": "65PQS8651/12", "model_encrypted": "K2kseVsmQFgkd15gKkJ+aj0n5NuODh3TdvfyYRUMx9U=",
+                        "softwareversion_encrypted": "K2kseVsmQFgkd15gKkJ+atJJI6kYBl5fIhF2Isg2DFHegH9Cg/LU4b6H/tjCh/AJ"})
+    assert info["model"] == "TPN266E"
+    assert info["sw_version"] is None  # "-000.000.000.000" placeholder

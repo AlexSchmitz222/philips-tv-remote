@@ -56,5 +56,18 @@
     "unknown_key": {
       "message": "Unknown key(s): {keys}. Valid keys: {valid}"
     }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Options",
+        "data": {
+          "scan_interval": "Polling interval (seconds)"
+        },
+        "data_description": {
+          "scan_interval": "How often the TV is asked for its state (2–300 s). Two requests per poll."
+        }
+      }
+    }
   }
 }

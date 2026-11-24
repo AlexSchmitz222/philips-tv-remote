@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import json
 
 import httpx
@@ -10,6 +11,9 @@ SYSTEM = {
     "name": "65PQS8651/12",
     "api_version": {"Major": 6, "Minor": 1, "Patch": 0},
     "featuring": {"systemfeatures": {"pairing_type": "digest_auth_pairing", "os_type": "Linux"}},
+    # real encrypted values from the 65PQS8651/12 (model TPN266E, placeholder sw version)
+    "model_encrypted": "K2kseVsmQFgkd15gKkJ+aj0n5NuODh3TdvfyYRUMx9U=",
+    "softwareversion_encrypted": "K2kseVsmQFgkd15gKkJ+atJJI6kYBl5fIhF2Isg2DFHegH9Cg/LU4b6H/tjCh/AJ",
 }
 
 
@@ -24,8 +28,28 @@ class FakeTV:
         self.lounge = None
         self.keys: list[str] = []
         self.log: list[tuple[str, str]] = []
+        self.context = "WatchTv"
+        self.notify_supported = True
+        self._changed: asyncio.Event | None = None
 
-    def handler(self, request: httpx.Request) -> httpx.Response:
+    # ---- simulate the user changing things on the TV itself
+    def remote_menu_change(self, node: int, data: dict) -> None:
+        self.menu.setdefault(node, {}).update(data)
+        self._signal()
+
+    def remote_context_change(self, level1: str) -> None:
+        self.context = level1
+        self._signal()
+
+    def _signal(self) -> None:
+        if self._changed:
+            self._changed.set()
+
+    def _notify_state(self) -> dict:
+        return {"powerstate": {"powerstate": "On"},
+                "context": {"level1": self.context, "level2": "NA", "level3": "NA", "data": "NA"}}
+
+    async def handler(self, request: httpx.Request) -> httpx.Response:
         if not self.on:
             raise httpx.ConnectError("No route to host", request=request)
         path = request.url.path.removeprefix("/6/")
@@ -44,12 +68,29 @@ class FakeTV:
         if path == "menuitems/settings/update":
             v = body["values"][0]["value"]
             self.menu.setdefault(v["Nodeid"], {}).update(v["data"])
+            self._signal()
             return httpx.Response(200, json={})
         if path == "audio/volume":
             if request.method == "POST":
                 self.volume["current"] = body["current"]  # muted flag is ignored by the TV
                 return httpx.Response(200)
             return httpx.Response(200, json=self.volume)
+        if path == "notifychange":
+            if not self.notify_supported:
+                return httpx.Response(404)
+            if not body["notification"]:
+                return httpx.Response(200, json=self._notify_state())
+            self._changed = asyncio.Event()
+            try:
+                await asyncio.wait_for(self._changed.wait(), timeout=request.extensions["timeout"]["read"])
+            except TimeoutError:
+                raise httpx.ReadTimeout("idle", request=request) from None
+            return httpx.Response(200, json=self._notify_state())
+        if path == "network/devices":
+            return httpx.Response(200, json=[
+                {"id": "eth0", "mac": "bc:c2:d9:64:15:b8", "ip": "192.168.178.78", "type": "Ethernet", "wake-on-lan": "Enabled"},
+                {"id": "wifi0", "mac": "44:ef:26:5a:8a:aa", "type": "Wifi", "wake-on-lan": "Disabled"},
+            ])
         if path == "input/key":
             self.keys.append(body["key"])
             if body["key"] == "Mute":

@@ -4,9 +4,9 @@ Design constraints learned from the device (PQS8651/12):
 * HTTPS on port 1926 with a self-signed TPV certificate.
 * HTTP Digest auth. The body must be sent with the *first* request – an empty
   probe POST is answered with 503 instead of 401. httpx does this correctly.
-* The API locks up when hit with bursts of requests (only a power cycle
-  helps). Every request therefore goes through a lock that enforces a minimum
-  interval between requests. Do not lower it without reason.
+* Requests are serialised through a lock with a minimum interval. A stress
+  test ran 4 requests/s for 90 s without any slowdown (2026-11-24); the
+  known API hang came from GET ambilight/lounge, which is blocked below.
 """
 
 from __future__ import annotations
@@ -24,7 +24,7 @@ from .models import AmbilightState, Volume
 
 DEFAULT_PORT = 1926
 API_VERSION = 6
-DEFAULT_MIN_INTERVAL = 1.5  # seconds between two requests
+DEFAULT_MIN_INTERVAL = 0.5  # seconds between requests; 0.25 s was stress-tested fine
 DEFAULT_TIMEOUT = 10.0
 CONNECT_TIMEOUT = 4.0  # in standby the TV is not reachable at all
 
@@ -300,6 +300,61 @@ class TitanTV:
             current = await self.volume()
         if current.muted != muted:
             await self.send_key("Mute")
+
+    async def notify_change(
+        self, state: dict[str, Any] | None = None, timeout: float = 30.0
+    ) -> dict[str, Any] | None:
+        """Long-poll ``notifychange``.
+
+        Returns as soon as the TV's state differs from ``state`` (pass the
+        previous result; ``{}`` returns the full state immediately). Returns
+        None if nothing changed within ``timeout``.
+
+        Reports menu changes (all of Ambilight), power, context and channel
+        within ~0.1 s – but not volume. Runs outside the request lock (it
+        would block every other request), and its read timeout is the normal
+        "no change" case, so it never starts a cooldown.
+        """
+        if time.monotonic() < self._cooldown_until:
+            raise TitanCooldownError("notifychange: cooldown active")
+        try:
+            resp = await self._client.post(
+                self.base_url + "notifychange",
+                json={"notification": state or {}},
+                auth=self._auth,
+                timeout=httpx.Timeout(timeout + 5, connect=CONNECT_TIMEOUT),
+            )
+        except httpx.ReadTimeout:
+            return None
+        except (httpx.ConnectError, httpx.ConnectTimeout) as err:
+            raise TitanUnreachableError(f"notifychange: {err!r}") from err
+        except (httpx.TimeoutException, httpx.TransportError) as err:
+            # TV closing a lingering connection is not unusual
+            raise TitanConnectionError(f"notifychange: {err!r}") from err
+        if resp.status_code == 401:
+            raise TitanAuthError("notifychange: 401 Unauthorized")
+        if resp.status_code >= 400:
+            raise TitanError(f"notifychange: HTTP {resp.status_code}")
+        if not resp.content.strip():
+            return {}
+        try:
+            data = resp.json()
+        except ValueError:
+            return {}
+        return data if isinstance(data, dict) else {}
+
+    async def network_devices(self) -> list[dict[str, Any]]:
+        data = await self.get("network/devices")
+        return data if isinstance(data, list) else []
+
+    async def wol_mac(self) -> str | None:
+        """MAC of the interface with Wake-on-LAN enabled (Ethernet preferred)."""
+        devices = await self.network_devices()
+        devices.sort(key=lambda d: d.get("type") != "Ethernet")
+        for dev in devices:
+            if dev.get("mac") and str(dev.get("wake-on-lan", "")).lower() == "enabled":
+                return dev["mac"]
+        return next((d["mac"] for d in devices if d.get("mac") and d.get("ip")), None)
 
     async def send_key(self, key: str) -> None:
         await self.post("input/key", {"key": key})
