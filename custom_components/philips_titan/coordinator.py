@@ -1,7 +1,8 @@
 """Coordinator – the only place that reads from the TV.
 
 Two sources:
-* polling every ``scan_interval`` (default 5 s): ambilight state + volume;
+* polling every ``scan_interval`` (default 5 s): ambilight state, volume and
+  activity context (three reads);
 * a ``notifychange`` long-poll as a best-effort accelerator. In one test the
   TV answered within 0.08 s when a menu setting changed; minutes later the
   same requests stayed unanswered (see docs/api.md). Polling therefore stays
@@ -86,6 +87,7 @@ class TitanCoordinator(DataUpdateCoordinator[TitanData]):
         try:
             ambilight = await self.tv.ambilight_state()
             volume = await self.tv.volume()
+            context = await self.tv.get("context")
         except TitanUnreachableError:
             return TitanData(on=False)  # standby
         except TitanAuthError as err:
@@ -103,6 +105,8 @@ class TitanCoordinator(DataUpdateCoordinator[TitanData]):
                     await self.send_lounge_colour(ambilight)
                 except TitanError as err:
                     LOGGER.warning("Could not restore lounge colour: %s", err)
+        if isinstance(context, dict) and context.get("level1"):
+            self._context = context["level1"]
         return TitanData(on=True, ambilight=ambilight, volume=volume, context=self._context)
 
     # ------------------------------------------------------------ push

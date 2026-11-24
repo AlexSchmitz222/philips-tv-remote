@@ -86,6 +86,8 @@ class FakeTV:
             except TimeoutError:
                 raise httpx.ReadTimeout("idle", request=request) from None
             return httpx.Response(200, json=self._notify_state())
+        if path == "context":
+            return httpx.Response(200, json={"level1": self.context, "level2": "NA", "level3": "NA", "data": "NA"})
         if path == "network/devices":
             return httpx.Response(200, json=[
                 {"id": "eth0", "mac": "bc:c2:d9:64:15:b8", "ip": "192.168.178.78", "type": "Ethernet", "wake-on-lan": "Enabled"},
@@ -108,7 +110,7 @@ class FakeTV:
         from custom_components.philips_titan.titan import TitanTV
 
         def make(host, username=None, password=None, **kw):
-            client = httpx.AsyncClient(transport=httpx.MockTransport(self.handler))
-            return TitanTV(host, username, password, min_interval=0, client=client)
+            client = httpx.AsyncClient(transport=httpx.MockTransport(lambda r: self.handler(r)))
+            return TitanTV(host, username, password, min_interval=0, write_interval=0, key_interval=0, client=client)
 
         return make

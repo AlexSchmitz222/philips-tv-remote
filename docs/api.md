@@ -14,7 +14,7 @@ Status: **ok** = getestet und funktioniert · **404** = gibt es nicht · **GEFÄ
 |---|---|---|
 | `system` | ok | ohne Auth; `featuring` u. a. `ambilight`, `matter`, `pairing_type: digest_auth_pairing` |
 | `powerstate` | 404 | gibt es auf Titan OS nicht |
-| `audio/volume` | ok | `{"muted","current","min":0,"max":60}` |
+| `audio/volume` | ok | `{"muted","current","min":0,"max":60}`; folgt der **echten Fernbedienung** (auf 5 gestellt → GET meldet 5, 2026-11-24) |
 | `ambilight/power` | ok | `{"power":"On"}` |
 | `ambilight/mode` | ok | `{"current":"internal"}` |
 | `ambilight/topology` | ok | 1 Ebene, links 4 / oben 9 / rechts 4 / unten 0 = 17 Zonen |
@@ -126,4 +126,3 @@ AI (321) und Kino (324) melden beide NATURAL. Über `currentconfiguration` lasse
 - Wirkt 710 auch auf Audio-Stile und feste Farbe? Wirkt 720 sichtbar?
 - Matter (`featuring.matter`) als zweiter Weg.
 - Meldet `notifychange` auch Ambilight-Änderungen, die per Fernbedienung gemacht werden?
-- Folgt `GET audio/volume` der echten Fernbedienung? Laut ha-philips-titanos nicht; bei uns ging der Wert zwischen zwei Tests von 16 auf 6.

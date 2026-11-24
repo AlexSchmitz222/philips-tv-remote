@@ -9,11 +9,15 @@ sind (siehe [docs/api.md](docs/api.md)), und hält immer einen Mindestabstand zw
 | Entität | Kann |
 |---|---|
 | `light.…_ambilight` | Ein/Aus, Effekte (AI, Standard, Sports, Cinema, Game, Lumina, Party, Rhythm, Fixed colour), Farbe, Helligkeit (gilt pro Stil) |
-| `media_player.…` | Ein (Wake-on-LAN) / Standby, Lautstärke setzen/±, Stummschalten |
+| `media_player.…` | Ein (Wake-on-LAN) / Standby, Lautstärke setzen/±, Stummschalten, Play/Pause/Stop/Weiter/Zurück (Tasten, per HDMI-CEC auch an angeschlossene Geräte) |
+| `number.…_volume` | Lautstärke in den Stufen des Fernsehers (0–60); der Media Player zeigt Prozent |
+| `sensor.…_input` | aktueller Eingang/Kontext (z. B. „HDMI“) |
 | `number.…_ambilight_saturation` | Ambilight-Sättigung −2 … +2 (Geräteeinstellung) |
 | `remote.…_remote` | Tasten senden (`remote.send_command`, z. B. `Home`, `CursorDown`, `Confirm`) |
 
-Der Zustand wird alle 30 s mit zwei Anfragen abgefragt. Nach dem Standby sendet die Integration
+Der Zustand wird alle 5 s (einstellbar 2–300 s) mit drei Leseanfragen abgefragt. Schreibbefehle haben
+mindestens 2 s Abstand, und schnell aufeinanderfolgende Befehle (Klicken, Ziehen am Farbrad) werden
+zusammengefasst – der Fernseher ist bei schnellen Einstellungsänderungen abgestürzt. Nach dem Standby sendet die Integration
 die feste Farbe erneut, weil der Fernseher sonst seine Menüfarbe zeigt.
 
 ## Installation

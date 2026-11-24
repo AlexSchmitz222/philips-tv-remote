@@ -49,6 +49,14 @@
     "number": {
       "ambilight_saturation": {
         "name": "Ambilight saturation"
+      },
+      "volume": {
+        "name": "Volume"
+      }
+    },
+    "sensor": {
+      "input": {
+        "name": "Input"
       }
     }
   },

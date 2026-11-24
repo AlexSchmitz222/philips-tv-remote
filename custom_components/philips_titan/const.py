@@ -5,7 +5,7 @@ import logging
 DOMAIN = "philips_titan"
 LOGGER = logging.getLogger(__package__)
 
-# Two requests per poll (ambilight state + volume). A stress test
+# Three reads per poll (ambilight state, volume, context). A stress test
 # (scripts/stress_poll.py, 2026-11-24) ran 4 requests/s without any
 # slowdown, so 5 s is far on the safe side.
 DEFAULT_SCAN_INTERVAL = 5

@@ -17,7 +17,7 @@ from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 from homeassistant.helpers.restore_state import RestoreEntity
 
 from .coordinator import TitanConfigEntry, TitanCoordinator
-from .entity import TitanEntity, tv_command
+from .entity import LatestCommand, TitanEntity, tv_command
 from .titan.models import BRIGHTNESS_MAX, FIXED_COLOUR, STYLES, STYLES_BY_KEY
 
 STYLES_BY_NAME = {s.name: s for s in STYLES}
@@ -46,6 +46,7 @@ class AmbilightLight(TitanEntity, LightEntity, RestoreEntity):
 
     def __init__(self, coordinator: TitanCoordinator) -> None:
         super().__init__(coordinator, "ambilight")
+        self._commands = LatestCommand()
 
     async def async_added_to_hass(self) -> None:
         await super().async_added_to_hass()
@@ -82,6 +83,29 @@ class AmbilightLight(TitanEntity, LightEntity, RestoreEntity):
 
     @tv_command
     async def async_turn_on(self, **kwargs: Any) -> None:
+        def merge(pending: dict[str, Any] | None) -> dict[str, Any]:
+            job = dict(pending) if isinstance(pending, dict) else {}
+            # colour and effect exclude each other: the newer one wins
+            if ATTR_HS_COLOR in kwargs:
+                job.pop(ATTR_EFFECT, None)
+            if ATTR_EFFECT in kwargs:
+                job.pop(ATTR_HS_COLOR, None)
+            job.update(kwargs)
+            return job
+
+        await self._commands.submit(merge, self._apply)
+
+    @tv_command
+    async def async_turn_off(self, **kwargs: Any) -> None:
+        await self._commands.submit(lambda _pending: "off", self._apply)
+
+    async def _apply(self, job: dict[str, Any] | str) -> None:
+        """Run one (possibly merged) job: "off" or turn_on kwargs."""
+        if job == "off":
+            await self.coordinator.tv.ambilight_off()
+            self.coordinator.set_ambilight_optimistic(on=False)
+            return
+        kwargs = job
         tv, st = self.coordinator.tv, self._state
 
         style_changed = False
@@ -117,7 +141,3 @@ class AmbilightLight(TitanEntity, LightEntity, RestoreEntity):
         else:
             await self.coordinator.tv.set_ambilight_style(STYLES_BY_KEY[key].key, self._state)
 
-    @tv_command
-    async def async_turn_off(self, **kwargs: Any) -> None:
-        await self.coordinator.tv.ambilight_off()
-        self.coordinator.set_ambilight_optimistic(on=False)

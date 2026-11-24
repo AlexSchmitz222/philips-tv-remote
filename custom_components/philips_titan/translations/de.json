@@ -49,6 +49,14 @@
     "number": {
       "ambilight_saturation": {
         "name": "Ambilight-Sättigung"
+      },
+      "volume": {
+        "name": "Lautstärke"
+      }
+    },
+    "sensor": {
+      "input": {
+        "name": "Eingang"
       }
     }
   },

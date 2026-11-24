@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 from collections.abc import Awaitable, Callable, Coroutine
 from functools import wraps
 from typing import Any, Concatenate
@@ -55,3 +56,26 @@ def tv_command[_E: TitanEntity, **_P](
             raise HomeAssistantError(f"Philips TV: {err}") from err
 
     return wrapper
+
+
+class LatestCommand:
+    """Coalesce rapid commands (clicking, dragging a slider/colour wheel).
+
+    While one command runs, newer ones are merged into a single pending job;
+    when the running one finishes, only that merged job is sent. The TV
+    crashed when settings were written in quick succession.
+    """
+
+    def __init__(self) -> None:
+        self._lock = asyncio.Lock()
+        self._job: Any = None
+
+    async def submit(
+        self, merge: Callable[[Any], Any], execute: Callable[[Any], Awaitable[None]]
+    ) -> None:
+        self._job = merge(self._job)
+        async with self._lock:
+            job, self._job = self._job, None
+            if job is None:
+                return  # already sent as part of a merged job
+            await execute(job)

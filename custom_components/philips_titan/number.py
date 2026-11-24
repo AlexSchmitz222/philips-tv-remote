@@ -1,4 +1,4 @@
-"""Ambilight saturation (menu node 720, -2..2)."""
+"""Ambilight saturation (menu node 720, -2..2) and volume in TV steps."""
 
 from __future__ import annotations
 
@@ -8,14 +8,14 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 
 from .coordinator import TitanConfigEntry, TitanCoordinator
-from .entity import TitanEntity, tv_command
+from .entity import LatestCommand, TitanEntity, tv_command
 from .titan.models import SATURATION_MAX, SATURATION_MIN
 
 
 async def async_setup_entry(
     hass: HomeAssistant, entry: TitanConfigEntry, async_add_entities: AddConfigEntryEntitiesCallback
 ) -> None:
-    async_add_entities([AmbilightSaturation(entry.runtime_data)])
+    async_add_entities([AmbilightSaturation(entry.runtime_data), TitanVolume(entry.runtime_data)])
 
 
 class AmbilightSaturation(TitanEntity, NumberEntity):
@@ -28,6 +28,7 @@ class AmbilightSaturation(TitanEntity, NumberEntity):
 
     def __init__(self, coordinator: TitanCoordinator) -> None:
         super().__init__(coordinator, "ambilight_saturation")
+        self._commands = LatestCommand()
 
     @property
     def available(self) -> bool:
@@ -40,5 +41,48 @@ class AmbilightSaturation(TitanEntity, NumberEntity):
 
     @tv_command
     async def async_set_native_value(self, value: float) -> None:
-        await self.coordinator.tv.set_ambilight_saturation(int(value))
-        self.coordinator.set_ambilight_optimistic(saturation=int(value))
+        async def send(v: int) -> None:
+            await self.coordinator.tv.set_ambilight_saturation(v)
+            self.coordinator.set_ambilight_optimistic(saturation=v)
+
+        await self._commands.submit(lambda _pending: int(value), send)
+
+
+class TitanVolume(TitanEntity, NumberEntity):
+    """Volume in the TV's own steps (0-60), unlike the media player's percent."""
+
+    _attr_translation_key = "volume"
+    _attr_native_step = 1
+    _attr_mode = NumberMode.SLIDER
+
+    def __init__(self, coordinator: TitanCoordinator) -> None:
+        super().__init__(coordinator, "volume")
+        self._commands = LatestCommand()
+
+    @property
+    def _volume(self):
+        return self.coordinator.data.volume if self.coordinator.data else None
+
+    @property
+    def available(self) -> bool:
+        return super().available and self.tv_on and self._volume is not None
+
+    @property
+    def native_min_value(self) -> float:
+        return self._volume.min if self._volume else 0
+
+    @property
+    def native_max_value(self) -> float:
+        return self._volume.max if self._volume else 60
+
+    @property
+    def native_value(self) -> float | None:
+        return self._volume.current if self._volume else None
+
+    @tv_command
+    async def async_set_native_value(self, value: float) -> None:
+        async def send(v: int) -> None:
+            await self.coordinator.tv.set_volume(v)
+            self.coordinator.set_volume_optimistic(current=v)
+
+        await self._commands.submit(lambda _pending: int(value), send)

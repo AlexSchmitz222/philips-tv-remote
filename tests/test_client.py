@@ -59,9 +59,10 @@ def fake():
     return FakeTV()
 
 
-def make_tv(fake, interval=0.0):
+def make_tv(fake, interval=0.0, write_interval=0.0, key_interval=0.0):
     client = httpx.AsyncClient(transport=httpx.MockTransport(fake.handler))
-    return TitanTV("tv", min_interval=interval, client=client)
+    return TitanTV("tv", min_interval=interval, write_interval=write_interval,
+                   key_interval=key_interval, client=client)
 
 
 def run(coro):
@@ -230,3 +231,20 @@ def test_system_info_decrypts_real_sample():
                         "softwareversion_encrypted": "K2kseVsmQFgkd15gKkJ+atJJI6kYBl5fIhF2Isg2DFHegH9Cg/LU4b6H/tjCh/AJ"})
     assert info["model"] == "TPN266E"
     assert info["sw_version"] is None  # "-000.000.000.000" placeholder
+
+
+def test_writes_spaced_further_than_reads(fake):
+    async def go():
+        tv = make_tv(fake, interval=0.05, write_interval=0.3)
+        await tv.set_ambilight_style("party", await tv.ambilight_state())  # 2 writes
+        await tv.volume()                                                   # read
+        await tv.set_ambilight_brightness(3)                                # write
+    run(go())
+    kinds = [("w" if m == "POST" and p != "menuitems/settings/current" else "r") for m, p, _ in fake.log]
+    t = fake.times
+    write_times = [ti for ti, k in zip(t, kinds) if k == "w"]
+    gaps = [b - a for a, b in zip(write_times, write_times[1:])]
+    assert len(write_times) == 3 and all(g >= 0.29 for g in gaps), gaps
+    # the read in between did not wait for the write interval
+    i_read = kinds.index("r", 1)
+    assert t[i_read] - t[i_read - 1] < 0.2

@@ -12,7 +12,7 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 
 from .coordinator import TitanConfigEntry, TitanCoordinator
-from .entity import TitanEntity, tv_command
+from .entity import LatestCommand, TitanEntity, tv_command
 
 BASE_FEATURES = (
     MediaPlayerEntityFeature.TURN_OFF
@@ -50,6 +50,7 @@ class TitanMediaPlayer(TitanEntity, MediaPlayerEntity):
 
     def __init__(self, coordinator: TitanCoordinator) -> None:
         super().__init__(coordinator, "media_player")
+        self._volume_commands = LatestCommand()
         self._attr_supported_features = BASE_FEATURES
         if coordinator.mac:
             self._attr_supported_features |= MediaPlayerEntityFeature.TURN_ON
@@ -90,9 +91,11 @@ class TitanMediaPlayer(TitanEntity, MediaPlayerEntity):
         v = self._volume
         if v is None:
             return
-        current = round(volume * v.max)
-        await self.coordinator.tv.set_volume(current, v.muted)
-        self.coordinator.set_volume_optimistic(current=current)
+        async def send(current: int) -> None:
+            await self.coordinator.tv.set_volume(current)
+            self.coordinator.set_volume_optimistic(current=current)
+
+        await self._volume_commands.submit(lambda _pending: round(volume * v.max), send)
 
     @tv_command
     async def async_mute_volume(self, mute: bool) -> None:

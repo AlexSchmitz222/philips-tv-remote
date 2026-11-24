@@ -1,4 +1,5 @@
 from datetime import timedelta
+import json
 
 from pytest_homeassistant_custom_component.common import MockConfigEntry, async_fire_time_changed
 
@@ -168,3 +169,60 @@ async def test_device_info(hass: HomeAssistant, fake_tv) -> None:
     entry = await setup(hass)
     (dev,) = dr.async_entries_for_config_entry(dr.async_get(hass), entry.entry_id)
     assert dev.model == "65PQS8651/12" and dev.model_id == "TPN266E" and dev.sw_version is None
+
+
+async def test_rapid_commands_are_coalesced(hass: HomeAssistant, fake_tv) -> None:
+    """Dragging the colour wheel: only the first and the latest colour are sent."""
+    import asyncio
+    entry = await setup(hass)
+    entry.runtime_data.tv.write_interval = 0.2  # commands take time, like on the real TV
+    fake_tv.menu[300] = {"activenode_id": 340}  # already fixed colour
+    await hass.services.async_call("light", "turn_on", {"entity_id": LIGHT, "effect": "Fixed colour"}, blocking=True)
+    lounge_posts = []
+    orig = fake_tv.handler
+
+    async def counting(request):
+        if request.url.path.endswith("ambilight/lounge"):
+            lounge_posts.append(json.loads(request.content)["color"]["hue"])
+        return await orig(request)
+
+    fake_tv.handler = counting
+    calls = [
+        hass.services.async_call("light", "turn_on", {"entity_id": LIGHT, "hs_color": [h, 100]}, blocking=True)
+        for h in (0, 60, 120, 180, 240)
+    ]
+    await asyncio.gather(*calls)
+    assert lounge_posts[-1] == round(240 * 255 / 360)
+    assert len(lounge_posts) <= 2, lounge_posts
+
+
+async def test_colour_then_brightness_both_kept(hass: HomeAssistant, fake_tv) -> None:
+    import asyncio
+    entry = await setup(hass)
+    entry.runtime_data.tv.write_interval = 0.2
+    await asyncio.gather(
+        hass.services.async_call("light", "turn_on", {"entity_id": LIGHT, "effect": "Party"}, blocking=True),
+        hass.services.async_call("light", "turn_on", {"entity_id": LIGHT, "hs_color": [120, 100]}, blocking=True),
+        hass.services.async_call("light", "turn_on", {"entity_id": LIGHT, "brightness": 51}, blocking=True),
+    )
+    assert fake_tv.lounge["hue"] == 85        # colour from the 2nd call
+    assert fake_tv.menu[710]["value"] == 2    # brightness from the 3rd call
+
+
+async def test_input_sensor_from_polling(hass: HomeAssistant, fake_tv) -> None:
+    fake_tv.notify_supported = False  # must work from polling alone
+    fake_tv.context = "WatchExtension"
+    await setup(hass)
+    assert hass.states.get("sensor.65pqs8651_12_input").state == "HDMI"
+    assert hass.states.get(PLAYER).attributes["source"] == "WatchExtension"
+
+
+async def test_volume_number_in_tv_steps(hass: HomeAssistant, fake_tv) -> None:
+    fake_tv.volume["current"] = 5
+    await setup(hass)
+    ent = "number.65pqs8651_12_volume"
+    st = hass.states.get(ent)
+    assert st.state == "5" and st.attributes["max"] == 60
+    await hass.services.async_call("number", "set_value", {"entity_id": ent, "value": 12}, blocking=True)
+    assert fake_tv.volume["current"] == 12
+    assert hass.states.get(PLAYER).attributes["volume_level"] == 12 / 60

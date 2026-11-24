@@ -24,7 +24,14 @@ from .models import AmbilightState, Volume
 
 DEFAULT_PORT = 1926
 API_VERSION = 6
-DEFAULT_MIN_INTERVAL = 0.5  # seconds between requests; 0.25 s was stress-tested fine
+DEFAULT_MIN_INTERVAL = 0.5  # between any two requests; reads stress-tested fine at 0.25 s
+# Writes need far more room: the TV re-applies Ambilight/menu state and
+# crashed when settings were changed in quick succession (2026-11-24, HA
+# with 0.5 s for everything). The original notes said 1.5-2 s.
+WRITE_INTERVAL = 2.0  # between two setting writes (menu update, ambilight, volume)
+KEY_INTERVAL = 1.0    # between two remote keys (untested below; conservative)
+# POSTs that only read
+READ_POSTS = frozenset({"menuitems/settings/current", "pair/request", "pair/grant"})
 DEFAULT_TIMEOUT = 10.0
 CONNECT_TIMEOUT = 4.0  # in standby the TV is not reachable at all
 
@@ -82,12 +89,17 @@ class TitanTV:
         *,
         port: int = DEFAULT_PORT,
         min_interval: float = DEFAULT_MIN_INTERVAL,
+        write_interval: float = WRITE_INTERVAL,
+        key_interval: float = KEY_INTERVAL,
         timeout: float = DEFAULT_TIMEOUT,
         client: httpx.AsyncClient | None = None,
     ) -> None:
         self.host = host
         self.base_url = f"https://{host}:{port}/{API_VERSION}/"
         self.min_interval = min_interval
+        self.write_interval = write_interval
+        self.key_interval = key_interval
+        self._last_write = 0.0
         self._auth = httpx.DigestAuth(username, password) if username else None
         self._own_client = client is None
         self._client = client or httpx.AsyncClient(
@@ -143,7 +155,12 @@ class TitanTV:
                     f"{method} {path}: TV hat zuletzt nicht geantwortet, "
                     f"Pause noch {remaining:.0f} s"
                 )
-            wait = self._last_request + self.min_interval - time.monotonic()
+            kind = _request_kind(method, path)
+            gap = {"write": self.write_interval, "key": self.key_interval}.get(kind, 0.0)
+            wait = max(
+                self._last_request + self.min_interval,
+                self._last_write + gap if gap else 0.0,
+            ) - time.monotonic()
             if wait > 0:
                 await asyncio.sleep(wait)
             try:
@@ -162,6 +179,8 @@ class TitanTV:
                 raise TitanConnectionError(f"{method} {path}: {err!r}") from err
             finally:
                 self._last_request = time.monotonic()
+                if kind != "read":
+                    self._last_write = self._last_request
             self._cooldown = 0.0
 
         if resp.status_code == 401:
@@ -361,6 +380,15 @@ class TitanTV:
 
     async def standby(self) -> None:
         await self.send_key("Standby")
+
+
+def _request_kind(method: str, path: str) -> str:
+    """read / key / write – writes are spaced much further apart."""
+    if method.upper() != "POST" or path in READ_POSTS:
+        return "read"
+    if path == "input/key":
+        return "key"
+    return "write"
 
 
 def _menu_values(response: Any) -> dict[int, dict[str, Any]]:
