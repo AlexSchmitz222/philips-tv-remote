@@ -26,22 +26,15 @@ BASE_FEATURES = (
     | MediaPlayerEntityFeature.VOLUME_MUTE
     | MediaPlayerEntityFeature.PLAY
     | MediaPlayerEntityFeature.PAUSE
-    | MediaPlayerEntityFeature.STOP
-    | MediaPlayerEntityFeature.NEXT_TRACK
-    | MediaPlayerEntityFeature.PREVIOUS_TRACK
     | MediaPlayerEntityFeature.PLAY_MEDIA
 )
+# Stop / Next / Previous / FastForward / Rewind are not forwarded to an HDMI
+# set-top box via CEC (tested 2026-11-24, Spotify on the box); they remain
+# available through remote.send_command.
 
 # Playback is controlled with remote keys. The API does not report whether
 # something is playing, so the entity stays "on" and only sends commands.
-MEDIA_KEYS = {
-    "play": "Play",
-    "pause": "Pause",
-    "play_pause": "PlayPause",
-    "stop": "Stop",
-    "next": "Next",
-    "previous": "Previous",
-}
+MEDIA_KEYS = {"play": "Play", "pause": "Pause", "play_pause": "PlayPause"}
 
 
 async def async_setup_entry(
@@ -54,7 +47,7 @@ class TitanMediaPlayer(TitanEntity, MediaPlayerEntity):
     _attr_name = None  # main entity of the device
     _attr_device_class = MediaPlayerDeviceClass.TV
     # The TV does not report playback state. With assumed_state the frontend
-    # shows separate play / pause / stop / previous / next buttons; otherwise
+    # shows separate play and pause buttons; otherwise
     # it shows a single toggle that always calls media_play.
     _attr_assumed_state = True
 
@@ -139,17 +132,6 @@ class TitanMediaPlayer(TitanEntity, MediaPlayerEntity):
     async def async_media_play_pause(self) -> None:
         await self.coordinator.tv.send_key(MEDIA_KEYS["play_pause"])
 
-    @tv_command
-    async def async_media_stop(self) -> None:
-        await self.coordinator.tv.send_key(MEDIA_KEYS["stop"])
-
-    @tv_command
-    async def async_media_next_track(self) -> None:
-        await self.coordinator.tv.send_key(MEDIA_KEYS["next"])
-
-    @tv_command
-    async def async_media_previous_track(self) -> None:
-        await self.coordinator.tv.send_key(MEDIA_KEYS["previous"])
 
     @tv_command
     async def async_play_media(self, media_type: str, media_id: str, **kwargs: Any) -> None:

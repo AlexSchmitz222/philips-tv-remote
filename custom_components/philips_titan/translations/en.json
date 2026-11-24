@@ -65,17 +65,6 @@
           "other": "Other app / AirPlay / media",
           "unknown": "Unknown"
         }
-      },
-      "ambilight_color": {
-        "name": "Ambilight colour"
-      }
-    },
-    "button": {
-      "rewind": {
-        "name": "Rewind"
-      },
-      "fast_forward": {
-        "name": "Fast forward"
       }
     }
   },
@@ -92,8 +81,7 @@
       "init": {
         "title": "Options",
         "data": {
-          "scan_interval": "Polling interval (seconds)",
-          "ambilight_colors": "Read Ambilight colours (one extra request per poll; for the colour sensor)"
+          "scan_interval": "Polling interval (seconds)"
         },
         "data_description": {
           "scan_interval": "How often the TV is asked for its state (2–300 s). Two requests per poll."

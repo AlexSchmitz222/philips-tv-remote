@@ -35,9 +35,9 @@ async def test_live_roundtrip(hass: HomeAssistant, socket_enabled) -> None:
     print("\nStart:", light.state, light.attributes.get("effect"), light.attributes.get("brightness"),
           "| TV", player.state, "Lautstärke", player.attributes.get("volume_level"))
     assert player.state == "on"
-    start_effect = light.attributes.get("effect") or "Standard"
+    start_effect = light.attributes.get("effect") or "Video: Standard"
 
-    await hass.services.async_call("light", "turn_on", {"entity_id": LIGHT, "effect": "Cinema"}, blocking=True)
+    await hass.services.async_call("light", "turn_on", {"entity_id": LIGHT, "effect": "Video: Cinema"}, blocking=True)
     await hass.async_block_till_done()
     await asyncio.sleep(4)
     tv = entry.runtime_data.tv
@@ -50,7 +50,7 @@ async def test_live_roundtrip(hass: HomeAssistant, socket_enabled) -> None:
     await asyncio.sleep(3)
     st = await tv.ambilight_state()
     print("zurück (vom TV gelesen):", st.style.name, "Helligkeit", st.brightness)
-    assert st.style.name == start_effect
+    assert start_effect.endswith(st.style.name)
 
     assert await hass.config_entries.async_unload(entry.entry_id)
 

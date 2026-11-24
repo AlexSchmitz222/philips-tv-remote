@@ -28,7 +28,8 @@ async def test_initial_state(hass: HomeAssistant, fake_tv) -> None:
     await setup(hass)
     light = hass.states.get(LIGHT)
     assert light.state == "on"
-    assert light.attributes["effect"] == "Standard"
+    assert light.attributes["effect"] == "Video: Standard"
+    assert "Audio: Rhythm" in light.attributes["effect_list"] and "Fixed colour" in light.attributes["effect_list"]
     assert light.attributes["brightness"] == 128  # 5/10
     player = hass.states.get(PLAYER)
     assert player.state == "on"
@@ -37,9 +38,9 @@ async def test_initial_state(hass: HomeAssistant, fake_tv) -> None:
 
 async def test_effect_colour_brightness(hass: HomeAssistant, fake_tv) -> None:
     await setup(hass)
-    await hass.services.async_call("light", "turn_on", {"entity_id": LIGHT, "effect": "Party"}, blocking=True)
+    await hass.services.async_call("light", "turn_on", {"entity_id": LIGHT, "effect": "Audio: Party"}, blocking=True)
     assert fake_tv.menu[300]["activenode_id"] == 330 and fake_tv.menu[330]["selected_item"] == 332
-    assert hass.states.get(LIGHT).attributes["effect"] == "Party"
+    assert hass.states.get(LIGHT).attributes["effect"] == "Audio: Party"
 
     await hass.services.async_call(
         "light", "turn_on", {"entity_id": LIGHT, "hs_color": [240, 100], "brightness": 255}, blocking=True
@@ -122,14 +123,6 @@ async def test_saturation(hass: HomeAssistant, fake_tv) -> None:
     assert hass.states.get(ent).state == "-2"
 
 
-async def test_media_keys(hass: HomeAssistant, fake_tv) -> None:
-    await setup(hass)
-    for service in ("media_play", "media_pause", "media_play_pause", "media_stop",
-                    "media_next_track", "media_previous_track"):
-        await hass.services.async_call("media_player", service, {"entity_id": PLAYER}, blocking=True)
-    assert fake_tv.keys == ["Play", "Pause", "PlayPause", "Stop", "Next", "Previous"]
-
-
 async def test_source_from_context(hass: HomeAssistant, fake_tv) -> None:
     entry = await setup(hass)
     fake_tv.remote_context_change("WatchExtension")
@@ -189,7 +182,7 @@ async def test_colour_then_brightness_both_kept(hass: HomeAssistant, fake_tv) ->
     entry = await setup(hass)
     entry.runtime_data.tv.write_interval = 0.2
     await asyncio.gather(
-        hass.services.async_call("light", "turn_on", {"entity_id": LIGHT, "effect": "Party"}, blocking=True),
+        hass.services.async_call("light", "turn_on", {"entity_id": LIGHT, "effect": "Audio: Party"}, blocking=True),
         hass.services.async_call("light", "turn_on", {"entity_id": LIGHT, "hs_color": [120, 100]}, blocking=True),
         hass.services.async_call("light", "turn_on", {"entity_id": LIGHT, "brightness": 51}, blocking=True),
     )
@@ -240,20 +233,6 @@ async def test_brand_icon_served_locally(hass: HomeAssistant, hass_client) -> No
     assert body == expected
 
 
-async def test_colour_sensor_only_with_option(hass: HomeAssistant, fake_tv) -> None:
-    await setup(hass)
-    assert hass.states.get("sensor.65pqs8651_12_ambilight_colour") is None
-    assert ("GET", "ambilight/processed") not in fake_tv.log
-
-
-async def test_colour_sensor(hass: HomeAssistant, fake_tv) -> None:
-    await setup(hass, {"ambilight_colors": True})
-    st = hass.states.get("sensor.65pqs8651_12_ambilight_colour")
-    assert st.state == "#804040"
-    assert st.attributes["rgb_color"] == [128, 64, 64]
-    assert st.attributes["left"] == [255, 0, 0]
-
-
 async def test_play_channel(hass: HomeAssistant, fake_tv) -> None:
     import pytest
     from homeassistant.exceptions import ServiceValidationError
@@ -279,9 +258,15 @@ async def test_diagnostics_redacted(hass: HomeAssistant, fake_tv, hass_client) -
     assert diag["client"]["write_interval"] == 0
 
 
-async def test_player_assumed_state_and_spool_buttons(hass: HomeAssistant, fake_tv) -> None:
+async def test_media_controls_only_play_pause(hass: HomeAssistant, fake_tv) -> None:
+    """Only Play/Pause reach an HDMI box via CEC; the player offers just those."""
+    from homeassistant.components.media_player import MediaPlayerEntityFeature as F
     await setup(hass)
-    assert hass.states.get(PLAYER).attributes.get("assumed_state") is True
-    await hass.services.async_call("button", "press", {"entity_id": "button.65pqs8651_12_fast_forward"}, blocking=True)
-    await hass.services.async_call("button", "press", {"entity_id": "button.65pqs8651_12_rewind"}, blocking=True)
-    assert fake_tv.keys == ["FastForward", "Rewind"]
+    st = hass.states.get(PLAYER)
+    feats = st.attributes["supported_features"]
+    assert st.attributes.get("assumed_state") is True
+    assert feats & F.PLAY and feats & F.PAUSE
+    assert not feats & (F.STOP | F.NEXT_TRACK | F.PREVIOUS_TRACK)
+    for service in ("media_play", "media_pause", "media_play_pause"):
+        await hass.services.async_call("media_player", service, {"entity_id": PLAYER}, blocking=True)
+    assert fake_tv.keys == ["Play", "Pause", "PlayPause"]

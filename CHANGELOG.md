@@ -6,17 +6,18 @@
   commands (clicking, dragging the colour wheel or sliders) are coalesced. The TV crashed
   when settings were written in quick succession.
 - Polling interval configurable (default 5 s).
-- Media player: play/pause/stop/next/previous (remote keys, forwarded via HDMI-CEC),
+- Media player: play/pause (remote keys, forwarded via HDMI-CEC; stop/next/previous/
+  fast-forward/rewind did not reach a set-top box and are only in `remote.send_command`),
   channel numbers via `media_player.play_media` with type `channel`, mute via the Mute key.
 - New entities: input sensor (home / satellite / TV / HDMI / other app), volume in TV
-  steps (0–60), optional Ambilight colour sensor (average LED colour, `rgb_color`).
+  steps (0–60).
+- Effects grouped by source: "Video: …", "Audio: …", "Fixed colour".
 - No `notifychange` long-poll: abandoned long-polls pile up on the TV until it answers 503
   (an intermediate development version used it).
 - MAC address from the TV (`network/devices`), model and serial in the device info.
 - Diagnostics download (credentials, MAC, IP and serial redacted).
 - Integration icon.
-- Media player marked as assumed state, so HA shows separate play/pause/stop/previous/next
-  buttons; rewind and fast-forward buttons.
+- Media player marked as assumed state, so HA shows separate play and pause buttons.
 
 ## 0.1.0
 

@@ -18,9 +18,19 @@ from homeassistant.helpers.restore_state import RestoreEntity
 
 from .coordinator import TitanConfigEntry, TitanCoordinator
 from .entity import LatestCommand, TitanEntity, tv_command
-from .titan.models import BRIGHTNESS_MAX, FIXED_COLOUR, STYLES, STYLES_BY_KEY
+from .titan.models import (
+    BRIGHTNESS_MAX,
+    FIXED_COLOUR,
+    NODE_AUDIO,
+    NODE_VIDEO,
+    STYLES,
+    STYLES_BY_KEY,
+)
 
-STYLES_BY_NAME = {s.name: s for s in STYLES}
+# Effect names shown in HA: grouped by what the style follows.
+_PREFIX = {NODE_VIDEO: "Video: ", NODE_AUDIO: "Audio: "}
+EFFECT_NAMES = {s.key: _PREFIX.get(s.category, "") + s.name for s in STYLES}
+STYLES_BY_EFFECT = {EFFECT_NAMES[s.key]: s for s in STYLES}
 
 
 async def async_setup_entry(
@@ -42,7 +52,7 @@ class AmbilightLight(TitanEntity, LightEntity, RestoreEntity):
     _attr_color_mode = ColorMode.HS
     _attr_supported_color_modes = {ColorMode.HS}
     _attr_supported_features = LightEntityFeature.EFFECT
-    _attr_effect_list = [s.name for s in STYLES]
+    _attr_effect_list = [EFFECT_NAMES[s.key] for s in STYLES]
 
     def __init__(self, coordinator: TitanCoordinator) -> None:
         super().__init__(coordinator, "ambilight")
@@ -75,7 +85,7 @@ class AmbilightLight(TitanEntity, LightEntity, RestoreEntity):
     @property
     def effect(self) -> str | None:
         st = self._state
-        return st.style.name if st and st.on and st.style else None
+        return EFFECT_NAMES[st.style.key] if st and st.on and st.style else None
 
     @property
     def hs_color(self) -> tuple[float, float] | None:
@@ -116,7 +126,7 @@ class AmbilightLight(TitanEntity, LightEntity, RestoreEntity):
             style_changed = not (st and st.on and st.style == FIXED_COLOUR)
             self.coordinator.set_ambilight_optimistic(on=True, style=FIXED_COLOUR)
         elif ATTR_EFFECT in kwargs:
-            style = STYLES_BY_NAME[kwargs[ATTR_EFFECT]]
+            style = STYLES_BY_EFFECT[kwargs[ATTR_EFFECT]]
             await self._activate(style.key)
             style_changed = not (st and st.on and st.style == style)
             self.coordinator.set_ambilight_optimistic(on=True, style=style)

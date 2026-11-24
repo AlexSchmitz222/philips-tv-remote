@@ -1,6 +1,9 @@
 {
   "domain": "philips_titan",
   "name": "Philips TV (Titan OS)",
+  "categories": [
+    "media_entertainment.tv_streaming"
+  ],
   "codeowners": [
     "@AlexSchmitz222"
   ],

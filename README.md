@@ -8,11 +8,9 @@ sind (siehe [docs/api.md](docs/api.md)), und hält immer einen Mindestabstand zw
 ## Funktionen
 | Entität | Kann |
 |---|---|
-| `light.…_ambilight` | Ein/Aus, Effekte (AI, Standard, Sports, Cinema, Game, Lumina, Party, Rhythm, Fixed colour), Farbe, Helligkeit (gilt pro Stil) |
-| `media_player.…` | Ein (Wake-on-LAN) / Standby, Lautstärke setzen/±, Stummschalten, Play/Pause/Stop/Weiter/Zurück (Tasten, per HDMI-CEC auch an angeschlossene Geräte) |
-| `button.…_rewind`, `button.…_fast_forward` | Zurück-/Vorspulen (Tasten; HA-Media-Player hat dafür keine Knöpfe) |
+| `light.…_ambilight` | Ein/Aus, Effekte (Video: AI/Standard/Sports/Cinema/Game, Audio: Lumina/Party/Rhythm, Fixed colour), Farbe, Helligkeit (gilt pro Stil) |
+| `media_player.…` | Ein (Wake-on-LAN) / Standby, Lautstärke setzen/±, Stummschalten, Play/Pause (Tasten, per HDMI-CEC auch an eine Set-top-Box; Stop/Weiter/Zurück/Spulen kamen dort nicht an und sind nur über `remote.send_command` verfügbar) |
 | `number.…_volume` | Lautstärke in den Stufen des Fernsehers (0–60); der Media Player zeigt Prozent |
-| `sensor.…_ambilight_colour` | optional (Option „Ambilight-Farben auslesen“): Durchschnittsfarbe der LEDs als `#rrggbb`, Attribut `rgb_color` – z. B. damit andere Lampen dem Bild folgen |
 | `sensor.…_input` | aktueller Eingang: Startbildschirm/Web-Apps, Satellit, TV, HDMI/Extension, andere App; Rohwerte als Attribute |
 | `number.…_ambilight_saturation` | Ambilight-Sättigung −2 … +2 (Geräteeinstellung) |
 | Senderwahl | `media_player.play_media` mit `media_content_type: channel`, `media_content_id: "12"` (Zifferntasten) |
@@ -64,3 +62,6 @@ Kopie davon. Nach jeder Änderung `scripts/bundle_lib.sh` ausführen.
 - `GET ambilight/lounge` hängt die API auf und ist im Client gesperrt.
 - Stummschalten läuft über die Taste `Mute` (umschalten); das `muted`-Feld von `audio/volume` ignoriert der Fernseher.
 - AI und Cinema melden intern beide „Natural“; unterschieden wird über den Menüknoten.
+
+## Lizenz
+MIT, siehe [LICENSE](LICENSE). Nicht mit Philips/TP Vision verbunden; „Philips“ und „Ambilight“ sind Marken ihrer Inhaber.

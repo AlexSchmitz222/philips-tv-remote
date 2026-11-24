@@ -254,7 +254,11 @@ class TitanTV:
         )
 
     async def ambilight_colors(self) -> AmbilightColors:
-        """Current LED colours (GET ambilight/processed – safe, unlike lounge)."""
+        """LED colours (GET ambilight/processed – safe, unlike lounge).
+
+        On the 65PQS8651/12 (fw 066.002.126.131) processed, measured and cached
+        return all zeros in every style, so this is not useful there.
+        """
         return AmbilightColors.from_processed(await self.get("ambilight/processed") or {})
 
     async def ambilight_off(self) -> None:

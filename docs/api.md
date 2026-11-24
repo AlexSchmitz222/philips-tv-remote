@@ -21,7 +21,7 @@ Status: **ok** = getestet und funktioniert · **404** = gibt es nicht · **GEFÄ
 | `ambilight/currentconfiguration` | ok | `styleName`, `menuSetting`, `stringValue` – liefert den aktuellen Stil (über `rest_command` kam früher nichts zurück) |
 | `ambilight/supportedstyles` | ok | FOLLOW_AUDIO-Algorithmen (9), FOLLOW_COLOR: MANUAL_HUE / AUTOMATIC_HUE |
 | `ambilight/lounge` | **GEFÄHRLICH** | GET → Timeout, danach antwortete die API nicht mehr (2026-11-24) |
-| `ambilight/cached`, `/measured`, `/processed` | ok | RGB je Zone (`layer1.left/top/right`), 17 Zonen. Im ersten Dump nur Timeout, weil `lounge` die API schon aufgehängt hatte |
+| `ambilight/cached`, `/measured`, `/processed` | ok, aber **immer 0** | RGB je Zone (`layer1.left/top/right`), 17 Zonen – auf dieser Firmware in jedem Stil (Rhythm, Standard) nur Nullen (2026-11-24). Im ersten Dump nur Timeout, weil `lounge` die API schon aufgehängt hatte |
 | `ambilight/ambihue/power`, `huelamp/power` | 404 | kein Ambilight+Hue |
 | `activities/current` | ok, aber nutzlos | immer `{"id":"skype"}`, egal was läuft |
 | `activities/tv` | ok | `channel`/`channelList` leer |
@@ -148,6 +148,7 @@ AES-CBC mit den ersten 16 Bytes des gemeinsamen Schlüssels, die ersten 16 Bytes
 | `input/key` | ok | `{"key":"VolumeUp"}` → Lautstärke +1; Antwort leer |
 | `audio/volume` | ok | `current` wird übernommen, **`muted` wird ignoriert** |
 | `input/key` `Digit0`–`Digit9` | ok | Senderwahl ohne `Confirm`: „5004“, „5005“ mit 1 s Abstand → Fernseher schaltet um (Streaming, 2026-11-24). `activities/tv` bleibt dabei leer, der Sender ist per API nicht lesbar |
+| `input/key` Medientasten | teilweise | an eine Set-top-Box (Spotify) per HDMI-CEC kommen nur `Play`/`Pause`/`PlayPause` an; `Stop`, `Next`, `Previous`, `FastForward`, `Rewind` bewirken dort nichts (2026-11-24) |
 | `input/key` `Mute` | ok | schaltet um; Zustand danach in `GET audio/volume` (`muted`) |
 | Menü 710 `data.value` | ok | Helligkeit 0–10, wirkt **sichtbar** (getestet 2026-11-24). Der Wert ist offenbar **pro Stil** gespeichert: Standard 5, Kino 10, feste Farbe 5 → nach jedem Stilwechsel neu lesen |
 | Menü 720 `data.value` | ok (gespeichert) | Sättigung −2..2, wird zurückgelesen; wirkt **sichtbar** (−2 blass, +2 kräftig; getestet 2026-11-24) |

@@ -27,7 +27,6 @@ from homeassistant.core import callback
 from homeassistant.helpers.device_registry import format_mac
 
 from .const import (
-    CONF_AMBILIGHT_COLORS,
     DEFAULT_SCAN_INTERVAL,
     DOMAIN,
     LOGGER,
@@ -218,9 +217,6 @@ class TitanOptionsFlow(OptionsFlow):
                     ): vol.All(
                         vol.Coerce(int), vol.Range(min=MIN_SCAN_INTERVAL, max=MAX_SCAN_INTERVAL)
                     ),
-                    vol.Required(
-                        CONF_AMBILIGHT_COLORS, default=opts.get(CONF_AMBILIGHT_COLORS, False)
-                    ): bool,
                 }
             ),
         )

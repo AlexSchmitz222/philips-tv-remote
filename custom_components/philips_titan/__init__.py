@@ -8,7 +8,7 @@ from homeassistant.core import HomeAssistant
 from .coordinator import TitanConfigEntry, TitanCoordinator
 from .titan import TitanTV
 
-PLATFORMS = [Platform.BUTTON, Platform.LIGHT, Platform.MEDIA_PLAYER, Platform.NUMBER, Platform.REMOTE, Platform.SENSOR]
+PLATFORMS = [Platform.LIGHT, Platform.MEDIA_PLAYER, Platform.NUMBER, Platform.REMOTE, Platform.SENSOR]
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: TitanConfigEntry) -> bool:

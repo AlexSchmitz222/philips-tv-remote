@@ -14,6 +14,3 @@ MAX_SCAN_INTERVAL = 300
 
 # How long after Wake-on-LAN before the first check (TV boot time).
 WAKE_REFRESH_DELAY = 15
-
-# Option: read the LED colours (ambilight/processed) on every poll.
-CONF_AMBILIGHT_COLORS = "ambilight_colors"

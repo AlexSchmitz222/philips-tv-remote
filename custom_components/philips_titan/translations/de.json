@@ -65,17 +65,6 @@
           "other": "Andere App / AirPlay / Medien",
           "unknown": "Unbekannt"
         }
-      },
-      "ambilight_color": {
-        "name": "Ambilight-Farbe"
-      }
-    },
-    "button": {
-      "rewind": {
-        "name": "Zurückspulen"
-      },
-      "fast_forward": {
-        "name": "Vorspulen"
       }
     }
   },
@@ -92,8 +81,7 @@
       "init": {
         "title": "Optionen",
         "data": {
-          "scan_interval": "Abfrageintervall (Sekunden)",
-          "ambilight_colors": "Ambilight-Farben auslesen (eine zusätzliche Anfrage pro Abfrage; für den Farbsensor)"
+          "scan_interval": "Abfrageintervall (Sekunden)"
         },
         "data_description": {
           "scan_interval": "Wie oft der Fernseher nach seinem Zustand gefragt wird (2–300 s). Zwei Anfragen pro Abfrage."
