@@ -54,7 +54,8 @@ DUMP_GET = [
 def _load_creds(path: Path) -> dict[str, str]:
     if not path.exists():
         return {}
-    return json.loads(path.read_text())
+    data: dict[str, str] = json.loads(path.read_text())
+    return data
 
 
 def _make_tv(args: argparse.Namespace, auth: bool = True) -> TitanTV:

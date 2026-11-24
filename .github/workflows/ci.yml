@@ -13,11 +13,16 @@ jobs:
         with:
           python-version: "3.14"
       - name: Install
-        run: pip install pytest-homeassistant-custom-component -e .
+        run: pip install pytest-homeassistant-custom-component pytest-cov mypy -e .
       - name: Bundled library matches src/
         run: ./scripts/bundle_lib.sh && git diff --exit-code custom_components/philips_titan/titan
-      - name: Tests (library + integration, no TV needed)
-        run: pytest -q tests tests_ha
+      - name: Tests (library + integration, no TV needed), coverage >= 95 %
+        run: >
+          pytest -q tests tests_ha
+          --cov=custom_components/philips_titan --cov=src/philips_titan
+          --cov-report=term-missing --cov-fail-under=95
+      - name: Strict typing
+        run: mypy custom_components/philips_titan src/philips_titan
 
   hassfest:
     runs-on: ubuntu-latest

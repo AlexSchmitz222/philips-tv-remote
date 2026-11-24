@@ -105,7 +105,7 @@ class TitanTV:
         self.key_interval = key_interval
         self._last_write = 0.0
         self.layout = MenuLayout.default()
-        self._auth = httpx.DigestAuth(username, password) if username else None
+        self._auth = httpx.DigestAuth(username, password or "") if username else None
         self._own_client = client is None
         self._client = client or httpx.AsyncClient(
             verify=_ssl_context(), timeout=httpx.Timeout(timeout, connect=CONNECT_TIMEOUT)
@@ -208,16 +208,16 @@ class TitanTV:
     # ------------------------------------------------------------- helpers
 
     async def system(self) -> dict[str, Any]:
-        return await self.get("system", auth=False)
+        return _as_dict(await self.get("system", auth=False))
 
     async def menu_structure(self) -> dict[str, Any]:
-        return await self.get("menuitems/settings/structure")
+        return _as_dict(await self.get("menuitems/settings/structure"))
 
     async def menu_current(self, node_ids: list[int]) -> dict[str, Any]:
-        return await self.post(
+        return _as_dict(await self.post(
             "menuitems/settings/current",
             {"version": 1, "nodes": [{"nodeid": n} for n in node_ids]},
-        )
+        ))
 
     async def menu_update(self, node_id: int, string_id: str, data: dict[str, Any]) -> Any:
         """Write a menu node. Titan OS requires ``version: 1``."""
@@ -253,9 +253,10 @@ class TitanTV:
         """Read style, brightness and saturation in a single request."""
         lay = self.layout
         values = _menu_values(await self.menu_current(lay.state_nodes))
-        active = (values.get(lay.style.id) or {}).get("activenode_id")
+        raw_active = (values.get(lay.style.id) or {}).get("activenode_id")
+        active = raw_active if isinstance(raw_active, int) else None
         style = None
-        if active in (n.id for n in lay.categories):
+        if active is not None and active in [n.id for n in lay.categories]:
             item = (values.get(active) or {}).get("selected_item")
             style = lay.style_for(active, item)
             if style is None and len([s for s in lay.styles if s.category == active]) == 1:
@@ -326,7 +327,9 @@ class TitanTV:
             raise TitanError("this TV has no fixed-colour Ambilight style")
         if not (current and current.on and current.style == fixed):
             await self.set_ambilight_style(fixed.key, current)
-        clamp = lambda v: max(0, min(255, int(v)))  # noqa: E731
+        def clamp(v: float) -> int:
+            return max(0, min(255, int(v)))
+
         await self.post(
             "ambilight/lounge",
             {
@@ -376,7 +379,7 @@ class TitanTV:
             resp = await self._client.post(
                 self.base_url + "notifychange",
                 json={"notification": state or {}},
-                auth=self._auth,
+                auth=self._auth or httpx.USE_CLIENT_DEFAULT,
                 timeout=httpx.Timeout(timeout + 5, connect=CONNECT_TIMEOUT),
             )
         except httpx.ReadTimeout:
@@ -408,8 +411,8 @@ class TitanTV:
         devices.sort(key=lambda d: d.get("type") != "Ethernet")
         for dev in devices:
             if dev.get("mac") and str(dev.get("wake-on-lan", "")).lower() == "enabled":
-                return dev["mac"]
-        return next((d["mac"] for d in devices if d.get("mac") and d.get("ip")), None)
+                return str(dev["mac"])
+        return next((str(d["mac"]) for d in devices if d.get("mac") and d.get("ip")), None)
 
     async def send_key(self, key: str) -> None:
         await self.post("input/key", {"key": key})
@@ -425,6 +428,10 @@ class TitanTV:
 
     async def standby(self) -> None:
         await self.send_key("Standby")
+
+
+def _as_dict(value: Any) -> dict[str, Any]:
+    return value if isinstance(value, dict) else {}
 
 
 def _request_kind(method: str, path: str) -> str:

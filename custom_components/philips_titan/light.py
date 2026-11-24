@@ -4,12 +4,12 @@ from __future__ import annotations
 
 from typing import Any
 
-from homeassistant.components.light import (
+from homeassistant.components.light import LightEntity
+from homeassistant.components.light.const import (
     ATTR_BRIGHTNESS,
     ATTR_EFFECT,
     ATTR_HS_COLOR,
     ColorMode,
-    LightEntity,
     LightEntityFeature,
 )
 from homeassistant.core import HomeAssistant
@@ -19,7 +19,7 @@ from homeassistant.helpers.restore_state import RestoreEntity
 from .coordinator import TitanConfigEntry, TitanCoordinator
 from .entity import LatestCommand, TitanEntity, tv_command
 from .titan.layout import MenuLayout
-from .titan.models import AmbilightStyle
+from .titan.models import AmbilightState, AmbilightStyle
 
 def effect_name(layout: MenuLayout, style: AmbilightStyle) -> str:
     """Effect names shown in HA, grouped by what the style follows."""
@@ -86,7 +86,7 @@ class AmbilightLight(TitanEntity, LightEntity, RestoreEntity):
         return super().available and self.tv_on
 
     @property
-    def _state(self):
+    def _state(self) -> AmbilightState | None:
         return self.coordinator.data.ambilight if self.coordinator.data else None
 
     @property
@@ -131,7 +131,7 @@ class AmbilightLight(TitanEntity, LightEntity, RestoreEntity):
             await self.coordinator.tv.ambilight_off()
             self.coordinator.set_ambilight_optimistic(on=False)
             return
-        kwargs = job
+        kwargs = job if isinstance(job, dict) else {}
         tv, st = self.coordinator.tv, self._state
 
         style_changed = False

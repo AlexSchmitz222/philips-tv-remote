@@ -2,6 +2,10 @@
 
 ## 0.2.0
 
+- **Home Assistant quality scale** (see `quality_scale.yaml`): zeroconf discovery, reconfigure flow,
+  shared HA HTTP client, translated errors and icons, repair issue without MAC, strict typing,
+  100 % test coverage of the integration; README covers installation, removal, options, examples,
+  limitations and troubleshooting.
 - **Other Titan models:** the Ambilight menu layout (node ids, string ids with or without the
   `MLM_PHM_KEY_` prefix, list items, slider ranges) is read from the TV once; unknown styles show
   up as effects. Falls back to the layout verified on the 65PQS8651/12.

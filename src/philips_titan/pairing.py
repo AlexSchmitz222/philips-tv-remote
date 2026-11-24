@@ -61,7 +61,7 @@ class PairingSession:
 
     @property
     def username(self) -> str:
-        return self.device["id"]
+        return str(self.device["id"])
 
     @property
     def password(self) -> str:

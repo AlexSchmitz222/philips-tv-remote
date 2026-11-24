@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import Any
 
 
 @dataclass(frozen=True)
@@ -62,7 +63,7 @@ class AmbilightColors:
     leds: int
 
     @classmethod
-    def from_processed(cls, data: dict) -> "AmbilightColors":
+    def from_processed(cls, data: dict[str, Any]) -> "AmbilightColors":
         all_px: list[tuple[int, int, int]] = []
         sides: dict[str, tuple[int, int, int]] = {}
         for layer in (data or {}).values():

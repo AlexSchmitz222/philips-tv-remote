@@ -72,7 +72,7 @@ class MqttPairing:
         corr = uuid.uuid4().hex
         resp_topic = f"{topic}/{corr}"
         self._client.subscribe(resp_topic, qos=0)
-        props = Properties(PacketTypes.PUBLISH)
+        props = Properties(PacketTypes.PUBLISH)  # type: ignore[no-untyped-call]
         props.ResponseTopic = resp_topic
         props.CorrelationData = corr.encode()
         self._client.publish(topic, json.dumps(payload), qos=0, properties=props)
@@ -136,14 +136,16 @@ class MqttListener:
         self._client.on_disconnect = lambda c, u, f, rc, p=None: self._on_connection(False)
         self._client.on_message = self._handle_message
 
-    def _handle_connect(self, client, userdata, flags, rc, props=None) -> None:
+    def _handle_connect(
+        self, client: mqtt.Client, userdata: Any, flags: Any, rc: Any, props: Any = None
+    ) -> None:
         if rc.is_failure:
             self._on_connection(False)
             return
         client.subscribe([(t, 0) for t in PUSH_TOPICS])
         self._on_connection(True)
 
-    def _handle_message(self, client, userdata, msg) -> None:
+    def _handle_message(self, client: mqtt.Client, userdata: Any, msg: Any) -> None:
         try:
             payload = json.loads(msg.payload)
         except ValueError:

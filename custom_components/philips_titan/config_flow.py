@@ -6,7 +6,10 @@ from collections.abc import Mapping
 from pathlib import Path
 from typing import Any
 
-import voluptuous as vol
+try:  # HA 2026+ validates forms with probatio
+    import probatio as vol
+except ImportError:  # pragma: no cover - older Home Assistant
+    import voluptuous as vol  # type: ignore[no-redef]
 
 from homeassistant.config_entries import (
     SOURCE_REAUTH,
@@ -59,7 +62,7 @@ def arp_lookup(host: str) -> str | None:
 def is_titan_pairable(system: dict[str, Any]) -> bool:
     """JointSpace v6 with PIN/digest pairing on a Linux (Titan OS) TV."""
     features = system.get("featuring", {}).get("systemfeatures", {})
-    return (
+    return bool(
         features.get("pairing_type") == "digest_auth_pairing"
         and features.get("os_type") == "Linux"
         and system.get("api_version", {}).get("Major") == 6
@@ -254,7 +257,7 @@ class TitanConfigFlow(ConfigFlow, domain=DOMAIN):
         if user_input is not None:
             self._mac = entry.data.get(CONF_MAC)
             error = await self._probe(user_input[CONF_HOST].strip())
-            if error is None and self._mac and entry.unique_id == self._mac:
+            if error is None and self._host and self._mac and entry.unique_id == self._mac:
                 # a different TV behind the new address must not take over this entry
                 found = await self.hass.async_add_executor_job(arp_lookup, self._host)
                 if found and format_mac(found) != self._mac:

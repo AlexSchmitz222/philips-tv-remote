@@ -9,6 +9,7 @@ from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 
 from .coordinator import TitanConfigEntry, TitanCoordinator
 from .entity import LatestCommand, TitanEntity, tv_command
+from .titan.models import Volume
 
 
 # No HA-side limit: the client serialises and spaces requests itself, and rapid
@@ -73,7 +74,7 @@ class TitanVolume(TitanEntity, NumberEntity):
         self._commands = LatestCommand()
 
     @property
-    def _volume(self):
+    def _volume(self) -> Volume | None:
         return self.coordinator.data.volume if self.coordinator.data else None
 
     @property

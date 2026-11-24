@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import Any
+
 from homeassistant.const import CONF_HOST, CONF_PASSWORD, CONF_USERNAME, Platform
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers import issue_registry as ir
@@ -59,7 +61,7 @@ async def _async_start_mqtt(
     callbacks are handed to the event loop."""
     from .titan.mqtt import MqttListener
 
-    def on_message(topic: str, payload: dict) -> None:
+    def on_message(topic: str, payload: dict[str, Any]) -> None:
         hass.loop.call_soon_threadsafe(coordinator.handle_push, topic, payload)
 
     def on_connection(connected: bool) -> None:

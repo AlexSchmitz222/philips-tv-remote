@@ -201,7 +201,7 @@ class TitanCoordinator(DataUpdateCoordinator[TitanData]):
             )
             self.async_set_updated_data(replace(self.data, volume=vol))
 
-    def set_ambilight_optimistic(self, **changes) -> None:
+    def set_ambilight_optimistic(self, **changes: Any) -> None:
         """Reflect a command immediately; the next poll confirms it.
         (Refreshes are debounced to protect the TV, so they may lag.)"""
         if self.data and self.data.ambilight:

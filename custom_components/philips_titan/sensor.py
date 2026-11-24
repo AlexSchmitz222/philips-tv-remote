@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import Any
+
 from homeassistant.components.sensor import SensorDeviceClass, SensorEntity
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
@@ -42,7 +44,7 @@ class TitanInputSensor(TitanEntity, SensorEntity):
         return super().available and self.tv_on
 
     @property
-    def _raw(self) -> dict:
+    def _raw(self) -> dict[str, Any]:
         data = self.coordinator.data
         return (data.context_raw or {}) if data else {}
 

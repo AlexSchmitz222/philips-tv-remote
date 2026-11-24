@@ -5,7 +5,7 @@ from __future__ import annotations
 import asyncio
 from collections.abc import Awaitable, Callable, Coroutine
 from functools import wraps
-from typing import Any, Concatenate
+from typing import Any, cast
 
 from homeassistant.const import CONF_MAC
 from homeassistant.exceptions import HomeAssistantError
@@ -43,15 +43,13 @@ class TitanEntity(CoordinatorEntity[TitanCoordinator]):
         return bool(self.coordinator.data and self.coordinator.data.on)
 
 
-def tv_command[_E: TitanEntity, **_P](
-    func: Callable[Concatenate[_E, _P], Awaitable[None]],
-) -> Callable[Concatenate[_E, _P], Coroutine[Any, Any, None]]:
-    """Turn library errors into HomeAssistantError for service calls."""
+def tv_command[_F: Callable[..., Coroutine[Any, Any, None]]](func: _F) -> _F:
+    """Turn library errors into translated HomeAssistantError for actions."""
 
     @wraps(func)
-    async def wrapper(self: _E, *args: _P.args, **kwargs: _P.kwargs) -> None:
+    async def wrapper(*args: Any, **kwargs: Any) -> None:
         try:
-            await func(self, *args, **kwargs)
+            await func(*args, **kwargs)
         except TitanError as err:
             raise HomeAssistantError(
                 translation_domain=DOMAIN,
@@ -59,7 +57,7 @@ def tv_command[_E: TitanEntity, **_P](
                 translation_placeholders={"error": str(err)},
             ) from err
 
-    return wrapper
+    return cast(_F, wrapper)
 
 
 class LatestCommand:

@@ -4,9 +4,9 @@ from __future__ import annotations
 
 from typing import Any
 
-from homeassistant.components.media_player import (
+from homeassistant.components.media_player import MediaPlayerEntity
+from homeassistant.components.media_player.const import (
     MediaPlayerDeviceClass,
-    MediaPlayerEntity,
     MediaPlayerEntityFeature,
     MediaPlayerState,
     MediaType,
@@ -18,6 +18,7 @@ from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 from .coordinator import TitanConfigEntry, TitanCoordinator
 from .const import DOMAIN
 from .entity import LatestCommand, TitanEntity, tv_command
+from .titan.models import Volume
 
 BASE_FEATURES = (
     MediaPlayerEntityFeature.TURN_OFF
@@ -73,7 +74,7 @@ class TitanMediaPlayer(TitanEntity, MediaPlayerEntity):
         return data.context if data and data.on else None
 
     @property
-    def _volume(self):
+    def _volume(self) -> Volume | None:
         return self.coordinator.data.volume if self.coordinator.data else None
 
     @property

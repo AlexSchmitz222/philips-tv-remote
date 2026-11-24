@@ -97,3 +97,25 @@ async def test_live_notifychange(hass: HomeAssistant, socket_enabled) -> None:
         await other.set_ambilight_brightness(start)
         await other.close()
         assert await hass.config_entries.async_unload(entry.entry_id)
+
+
+async def test_live_zeroconf_probe(hass: HomeAssistant, socket_enabled) -> None:
+    """Discovery step against the real TV (stops before pairing, no PIN shown)."""
+    from ipaddress import ip_address
+
+    import pytest_socket
+    from homeassistant import config_entries
+    from homeassistant.helpers.service_info.zeroconf import ZeroconfServiceInfo
+
+    creds = json.loads((Path(__file__).parents[1] / "credentials.json").read_text())
+    pytest_socket.socket_allow_hosts([creds["host"], "127.0.0.1"])
+    info = ZeroconfServiceInfo(
+        ip_address=ip_address(creds["host"]), ip_addresses=[ip_address(creds["host"])],
+        hostname="tv.local.", name="6_65PQS8651/12._philipstv_s_rpc._tcp.local.", port=1926,
+        type="_philipstv_s_rpc._tcp.local.", properties={},
+    )
+    result = await hass.config_entries.flow.async_init(
+        "philips_titan", context={"source": config_entries.SOURCE_ZEROCONF}, data=info)
+    print("\nZeroconf:", result.get("step_id"), result.get("description_placeholders"))
+    assert result["step_id"] == "zeroconf_confirm"
+    hass.config_entries.flow.async_abort(result["flow_id"])
