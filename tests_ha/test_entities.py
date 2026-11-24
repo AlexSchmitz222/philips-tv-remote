@@ -237,3 +237,16 @@ async def test_input_sensor_values(hass: HomeAssistant, fake_tv) -> None:
         await entry.runtime_data.async_refresh()
         await hass.async_block_till_done()
         assert hass.states.get("sensor.65pqs8651_12_input").state == expected
+
+
+async def test_brand_icon_served_locally(hass: HomeAssistant, hass_client) -> None:
+    """HA 2026.x serves brand/icon.png from the custom integration folder."""
+    from pathlib import Path
+    from homeassistant.setup import async_setup_component
+    assert await async_setup_component(hass, "brands", {})
+    client = await hass_client()
+    resp = await client.get("/api/brands/integration/philips_titan/icon.png")
+    assert resp.status == 200
+    body = await resp.read()
+    expected = (Path(__file__).parents[1] / "custom_components/philips_titan/brand/icon.png").read_bytes()
+    assert body == expected
