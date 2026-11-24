@@ -1,0 +1,69 @@
+blueprint:
+  name: Ambilight-Effekt je Eingang
+  description: >
+    Setzt den Ambilight-Effekt automatisch, wenn der Fernseher den Eingang wechselt
+    (Sensor „Eingang“ der Integration Philips TV (Titan OS)). Leere Felder = nichts ändern.
+  domain: automation
+  source_url: https://github.com/AlexSchmitz222/philips-tv-remote/blob/main/blueprints/automation/philips_titan/ambilight_per_input.yaml
+  input:
+    input_sensor:
+      name: Eingangs-Sensor
+      selector:
+        entity:
+          filter:
+            - integration: philips_titan
+              domain: sensor
+    ambilight:
+      name: Ambilight
+      selector:
+        entity:
+          filter:
+            - integration: philips_titan
+              domain: light
+    effect_extension:
+      name: Effekt bei HDMI / Extension
+      default: ""
+      selector:
+        text:
+    effect_tv:
+      name: Effekt bei TV (Antenne/Streaming) und Satellit
+      default: ""
+      selector:
+        text:
+    effect_home:
+      name: Effekt auf dem Startbildschirm
+      default: ""
+      selector:
+        text:
+    effect_other:
+      name: Effekt bei anderer App / AirPlay / Medien
+      default: ""
+      selector:
+        text:
+
+mode: restart
+
+triggers:
+  - trigger: state
+    entity_id: !input input_sensor
+    not_to: [unavailable, unknown]
+
+variables:
+  effects:
+    extension: !input effect_extension
+    tv: !input effect_tv
+    satellite: !input effect_tv
+    home: !input effect_home
+    other: !input effect_other
+  effect: "{{ effects.get(trigger.to_state.state, '') }}"
+
+conditions:
+  - condition: template
+    value_template: "{{ effect != '' }}"
+
+actions:
+  - action: light.turn_on
+    target:
+      entity_id: !input ambilight
+    data:
+      effect: "{{ effect }}"

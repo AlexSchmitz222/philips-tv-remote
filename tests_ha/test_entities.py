@@ -278,3 +278,30 @@ async def test_menu_layout_detected_once(hass: HomeAssistant, fake_tv) -> None:
     await entry.runtime_data.async_refresh()
     assert fake_tv.log.count(("GET", "menuitems/settings/structure")) == 1
     assert len(hass.states.get(LIGHT).attributes["effect_list"]) == 9
+
+
+async def test_blueprint_ambilight_per_input(hass: HomeAssistant, fake_tv) -> None:
+    import shutil
+    from pathlib import Path
+    from homeassistant.setup import async_setup_component
+
+    src = Path(__file__).parents[1] / "blueprints/automation/philips_titan/ambilight_per_input.yaml"
+    dst = Path(hass.config.path("blueprints/automation/philips_titan"))
+    dst.mkdir(parents=True, exist_ok=True)
+    shutil.copy(src, dst / src.name)
+    try:
+        entry = await setup(hass)
+        assert await async_setup_component(hass, "automation", {"automation": {
+            "use_blueprint": {"path": "philips_titan/ambilight_per_input.yaml", "input": {
+                "input_sensor": "sensor.65pqs8651_12_input",
+                "ambilight": LIGHT,
+                "effect_extension": "Video: Game",
+            }}}})
+        await hass.async_block_till_done()
+        fake_tv.context = "WatchExtension"
+        await entry.runtime_data.async_refresh()
+        await hass.async_block_till_done()
+        assert hass.states.get("sensor.65pqs8651_12_input").state == "extension"
+        assert fake_tv.menu[320]["selected_item"] == 325  # Game
+    finally:
+        shutil.rmtree(dst, ignore_errors=True)

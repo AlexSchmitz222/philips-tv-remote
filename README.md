@@ -39,6 +39,18 @@ die feste Farbe erneut, weil der Fernseher sonst seine Menüfarbe zeigt.
 `ha-philips-titanos`), deaktivieren. Parallele Abfragen erhöhen die Last und damit
 das Risiko, dass die API hängen bleibt.
 
+## Blueprints
+Fertige Automationen zum Importieren (Einstellungen → Automationen → Blueprints → Blueprint importieren,
+URL einfügen):
+
+| Blueprint | Wirkung |
+|---|---|
+| [Ambilight-Effekt je Eingang](blueprints/automation/philips_titan/ambilight_per_input.yaml) | z. B. HDMI → „Video: Game“, Startbildschirm → „Fixed colour“ |
+| [Licht an, wenn der Fernseher ausgeht](blueprints/automation/philips_titan/lights_when_tv_off.yaml) | Lampen/Szene einschalten, optional nur nach Sonnenuntergang |
+
+Import-URLs: `https://github.com/AlexSchmitz222/philips-tv-remote/blob/main/blueprints/automation/philips_titan/ambilight_per_input.yaml` und `https://github.com/AlexSchmitz222/philips-tv-remote/blob/main/blueprints/automation/philips_titan/lights_when_tv_off.yaml`
+(funktioniert, sobald das Repository öffentlich ist).
+
 ## Releases
 Versionen stehen in [CHANGELOG.md](CHANGELOG.md). Neue Version:
 1. `version` in `custom_components/philips_titan/manifest.json` (und `pyproject.toml`) erhöhen,

@@ -1,0 +1,45 @@
+blueprint:
+  name: Licht an, wenn der Fernseher ausgeht
+  description: >
+    Schaltet Lampen oder eine Szene ein, sobald der Fernseher (Media Player der Integration
+    Philips TV (Titan OS)) in den Standby geht – z. B. damit es nach dem Film nicht dunkel ist.
+  domain: automation
+  source_url: https://github.com/AlexSchmitz222/philips-tv-remote/blob/main/blueprints/automation/philips_titan/lights_when_tv_off.yaml
+  input:
+    tv:
+      name: Fernseher
+      selector:
+        entity:
+          filter:
+            - integration: philips_titan
+              domain: media_player
+    target_lights:
+      name: Licht oder Szene
+      selector:
+        target:
+          entity:
+            - domain: [light, scene]
+    only_dark:
+      name: Nur wenn die Sonne untergegangen ist
+      default: true
+      selector:
+        boolean:
+
+mode: single
+
+triggers:
+  - trigger: state
+    entity_id: !input tv
+    from: "on"
+    to: "off"
+
+variables:
+  only_dark: !input only_dark
+
+conditions:
+  - condition: template
+    value_template: "{{ not only_dark or is_state('sun.sun', 'below_horizon') }}"
+
+actions:
+  - action: homeassistant.turn_on
+    target: !input target_lights
