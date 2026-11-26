@@ -156,11 +156,12 @@ Versionen stehen in [CHANGELOG.md](CHANGELOG.md). Neue Version:
 
 ## Entwicklung
 ```bash
-python3 -m venv .venv && .venv/bin/pip install -e . pytest            # Bibliothek + CLI „titan“
-python3 -m venv .venv-ha && .venv-ha/bin/pip install -e . pytest-homeassistant-custom-component pytest-cov mypy
+python3 -m venv .venv && .venv/bin/pip install -e ".[mqtt,system]" pytest   # Bibliothek + CLI „titan“
+python3 -m venv .venv-ha && .venv-ha/bin/pip install -e ".[mqtt,system,dev]"
 ./scripts/bundle_lib.sh                                                 # Bibliothek in die Integration kopieren
 .venv-ha/bin/python -m pytest tests tests_ha --cov=custom_components/philips_titan --cov=src/philips_titan
 .venv-ha/bin/mypy custom_components/philips_titan src/philips_titan     # strict
+.venv-ha/bin/ruff check --select F,E9,B,UP,SIM --target-version py313 --exclude custom_components/philips_titan/titan src custom_components tests tests_ha scripts
 TITAN_LIVE=1 .venv-ha/bin/python -m pytest -s tests_ha/test_live.py      # gegen den echten Fernseher
 ```
 Die Bibliothek liegt in `src/philips_titan`. `custom_components/philips_titan/titan` ist eine Kopie davon,

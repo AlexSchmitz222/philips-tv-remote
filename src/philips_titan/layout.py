@@ -97,7 +97,7 @@ class MenuLayout:
     # ------------------------------------------------------------ builders
 
     @classmethod
-    def default(cls) -> "MenuLayout":
+    def default(cls) -> MenuLayout:
         """Layout verified on the 65PQS8651/12 (fw 066.002.126.131)."""
         video = Node(320, "MAIN_FOLLOW_VIDEO")
         audio = Node(330, "MAIN_FOLLOW_AUDIO")
@@ -120,7 +120,7 @@ class MenuLayout:
         )
 
     @classmethod
-    def from_structure(cls, structure: Any) -> "MenuLayout":
+    def from_structure(cls, structure: Any) -> MenuLayout:
         """Build from a GET menuitems/settings/structure answer; missing
         parts fall back to the default layout."""
         nodes: dict[str, dict[str, Any]] = {}

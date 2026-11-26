@@ -9,7 +9,8 @@ from .client import (
     TitanUnreachableError,
     TitanUnsafeRequestError,
 )
-from .models import AmbilightColors, AmbilightState, AmbilightStyle, Volume, STYLES, STYLES_BY_KEY, KEYS
+from .layout import MenuLayout
+from .models import KEYS, AmbilightState, AmbilightStyle, Volume
 from .pairing import PairingSession, pair_request, pair_grant
 
 __all__ = [
@@ -23,11 +24,9 @@ __all__ = [
     "PairingSession",
     "pair_request",
     "pair_grant",
-    "AmbilightColors",
     "AmbilightState",
     "AmbilightStyle",
     "Volume",
-    "STYLES",
-    "STYLES_BY_KEY",
+    "MenuLayout",
     "KEYS",
 ]

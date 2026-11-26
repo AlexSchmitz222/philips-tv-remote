@@ -8,3 +8,8 @@ dumps/
 .venv-ha/
 # MQTT-Zugangsdaten (Titan OS)
 mqtt_credentials.json
+# Test- und Werkzeug-Artefakte
+.coverage
+htmlcov/
+.mypy_cache/
+.pytest_cache/

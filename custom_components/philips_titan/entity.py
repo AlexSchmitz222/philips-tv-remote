@@ -43,7 +43,7 @@ class TitanEntity(CoordinatorEntity[TitanCoordinator]):
         return bool(self.coordinator.data and self.coordinator.data.on)
 
 
-def tv_command[_F: Callable[..., Coroutine[Any, Any, None]]](func: _F) -> _F:
+def tv_command[F: Callable[..., Coroutine[Any, Any, None]]](func: F) -> F:
     """Turn library errors into translated HomeAssistantError for actions."""
 
     @wraps(func)
@@ -57,7 +57,7 @@ def tv_command[_F: Callable[..., Coroutine[Any, Any, None]]](func: _F) -> _F:
                 translation_placeholders={"error": str(err)},
             ) from err
 
-    return cast(_F, wrapper)
+    return cast(F, wrapper)
 
 
 class LatestCommand:

@@ -22,7 +22,9 @@ import httpx
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 from philips_titan.client import TitanError, TitanTV  # noqa: E402
-from philips_titan.models import STATE_NODES  # noqa: E402
+from philips_titan.layout import MenuLayout  # noqa: E402
+
+STATE_NODES = MenuLayout.default().state_nodes
 
 LEVELS = [3.0, 2.0, 1.5, 1.0, 0.75, 0.5, 0.25]
 

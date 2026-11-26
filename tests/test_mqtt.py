@@ -128,6 +128,6 @@ def test_listener_subscribes_and_reports():
 
 
 def test_listener_default_connection_callback():
-    lst = tm.MqttListener("tv", "U", "P", lambda t, p: None)
+    tm.MqttListener("tv", "U", "P", lambda t, p: None)
     c = FakeClient.instances[0]
     c.on_disconnect(c, None, {}, RC())  # must not raise

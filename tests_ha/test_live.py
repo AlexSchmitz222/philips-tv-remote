@@ -55,50 +55,6 @@ async def test_live_roundtrip(hass: HomeAssistant, socket_enabled) -> None:
     assert await hass.config_entries.async_unload(entry.entry_id)
 
 
-async def test_live_notifychange(hass: HomeAssistant, socket_enabled) -> None:
-    """External change (as if made with the remote) reaches HA via notifychange."""
-    import time
-    import pytest_socket
-    from custom_components.philips_titan.titan import TitanTV
-
-    creds = json.loads((Path(__file__).parents[1] / "credentials.json").read_text())
-    pytest_socket.socket_allow_hosts([creds["host"], "127.0.0.1"])
-    entry = MockConfigEntry(
-        domain="philips_titan", title="65PQS8651/12", unique_id="bc:c2:d9:64:15:b8",
-        data={"host": creds["host"], "username": creds["username"], "password": creds["password"],
-              "mac": "bc:c2:d9:64:15:b8"},
-        options={"scan_interval": 60},  # make sure a poll cannot explain the update
-    )
-    entry.add_to_hass(hass)
-    assert await hass.config_entries.async_setup(entry.entry_id)
-    await hass.async_block_till_done()
-    await asyncio.sleep(3)  # long-poll established
-
-    other = TitanTV(creds["host"], creds["username"], creds["password"])
-    try:
-        start = (await other.ambilight_state()).brightness
-        target = 3 if start != 3 else 4
-        print(f"\nHelligkeit extern {start} -> {target}")
-        t0 = time.monotonic()
-        await other.set_ambilight_brightness(target)
-        seen = None
-        while time.monotonic() - t0 < 10:
-            await asyncio.sleep(0.05)
-            b = hass.states.get(LIGHT).attributes.get("brightness")
-            if b == round(target * 255 / 10):
-                seen = time.monotonic() - t0
-                break
-        print(f"HA hat die Änderung nach {seen:.2f}s" if seen else "HA hat die Änderung NICHT gesehen")
-        print("Quelle (media_player.source):", hass.states.get(PLAYER).attributes.get("source"))
-        info = entry.runtime_data.system_info
-        print("Geräteinfo: model_id", info.get("model"), "sw", info.get("sw_version"))
-        assert seen is not None and seen < 3
-    finally:
-        await other.set_ambilight_brightness(start)
-        await other.close()
-        assert await hass.config_entries.async_unload(entry.entry_id)
-
-
 async def test_live_zeroconf_probe(hass: HomeAssistant, socket_enabled) -> None:
     """Discovery step against the real TV (stops before pairing, no PIN shown)."""
     from ipaddress import ip_address

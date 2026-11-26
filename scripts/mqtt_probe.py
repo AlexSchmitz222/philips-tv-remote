@@ -50,7 +50,7 @@ def make_client(username: str | None = None, password: str | None = None) -> mqt
     return c
 
 
-def request(c: mqtt.Client, inbox: "queue.Queue", topic: str, payload: dict, timeout: float = 10) -> dict:
+def request(c: mqtt.Client, inbox: queue.Queue, topic: str, payload: dict, timeout: float = 10) -> dict:
     corr = uuid.uuid4().hex
     resp_topic = f"{topic}/{corr}"
     c.subscribe(resp_topic, qos=0)
@@ -70,7 +70,7 @@ def request(c: mqtt.Client, inbox: "queue.Queue", topic: str, payload: dict, tim
     raise TimeoutError(f"no answer on {resp_topic}")
 
 
-def connect(c: mqtt.Client) -> "queue.Queue":
+def connect(c: mqtt.Client) -> queue.Queue:
     inbox: queue.Queue = queue.Queue()
     ready = queue.Queue()
     c.on_connect = lambda cl, u, f, rc, p=None: ready.put(rc)

@@ -7,7 +7,6 @@ import time
 import httpx
 import pytest
 
-from philips_titan import models as m
 from philips_titan.client import (
     TitanCooldownError,
     TitanConnectionError,
@@ -145,7 +144,7 @@ def test_throttle_interval(fake):
         tv = make_tv(fake, interval=0.2)
         await asyncio.gather(*(tv.volume() for _ in range(3)))
     run(go())
-    gaps = [b - a for a, b in zip(fake.times, fake.times[1:])]
+    gaps = [b - a for a, b in zip(fake.times, fake.times[1:], strict=False)]
     assert all(g >= 0.19 for g in gaps), gaps
 
 
@@ -242,27 +241,12 @@ def test_writes_spaced_further_than_reads(fake):
     run(go())
     kinds = [("w" if m == "POST" and p != "menuitems/settings/current" else "r") for m, p, _ in fake.log]
     t = fake.times
-    write_times = [ti for ti, k in zip(t, kinds) if k == "w"]
-    gaps = [b - a for a, b in zip(write_times, write_times[1:])]
+    write_times = [ti for ti, k in zip(t, kinds, strict=True) if k == "w"]
+    gaps = [b - a for a, b in zip(write_times, write_times[1:], strict=False)]
     assert len(write_times) == 3 and all(g >= 0.29 for g in gaps), gaps
     # the read in between did not wait for the write interval
     i_read = kinds.index("r", 1)
     assert t[i_read] - t[i_read - 1] < 0.2
-
-
-def test_ambilight_colors_from_real_dump_shape():
-    from philips_titan.models import AmbilightColors
-    data = {"layer1": {
-        "left": {"0": {"r": 255, "g": 0, "b": 0}, "1": {"r": 255, "g": 0, "b": 0}},
-        "top": {"0": {"r": 0, "g": 0, "b": 255}},
-        "right": {"0": {"r": 0, "g": 255, "b": 0}},
-        "bottom": {},
-    }}
-    c = AmbilightColors.from_processed(data)
-    assert c.leds == 4
-    assert c.sides == {"left": (255, 0, 0), "top": (0, 0, 255), "right": (0, 255, 0)}
-    assert c.average == (128, 64, 64)
-    assert AmbilightColors.from_processed({}).average is None
 
 
 def test_channel_number_keys(fake):

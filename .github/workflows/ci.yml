@@ -13,7 +13,7 @@ jobs:
         with:
           python-version: "3.14"
       - name: Install
-        run: pip install pytest-homeassistant-custom-component pytest-cov mypy -e .
+        run: pip install pytest-homeassistant-custom-component pytest-cov mypy ruff -e .
       - name: Bundled library matches src/
         run: ./scripts/bundle_lib.sh && git diff --exit-code custom_components/philips_titan/titan
       - name: Tests (library + integration, no TV needed), coverage >= 95 %
@@ -21,6 +21,8 @@ jobs:
           pytest -q tests tests_ha
           --cov=custom_components/philips_titan --cov=src/philips_titan
           --cov-report=term-missing --cov-fail-under=95
+      - name: Lint
+        run: ruff check --select F,E9,B,UP,SIM --target-version py313 --exclude custom_components/philips_titan/titan src custom_components tests tests_ha scripts
       - name: Strict typing
         run: mypy custom_components/philips_titan src/philips_titan
 

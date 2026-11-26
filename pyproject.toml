@@ -10,6 +10,12 @@ requires-python = ">=3.12"
 license = "MIT"
 dependencies = ["httpx>=0.27"]
 
+[project.optional-dependencies]
+# philips_titan.mqtt (optional Titan OS MQTT push) and philips_titan.system (serial/model decoding)
+mqtt = ["paho-mqtt>=2.1"]
+system = ["cryptography"]
+dev = ["pytest", "pytest-cov", "pytest-homeassistant-custom-component", "mypy", "ruff"]
+
 [project.scripts]
 titan = "philips_titan.cli:main"
 

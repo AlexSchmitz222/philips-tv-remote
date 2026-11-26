@@ -4,7 +4,7 @@ Gerät: 65PQS8651/12, API 6.1.0, `https://<ip>:1926/6/`, Digest-Auth.
 Status: **ok** = getestet und funktioniert · **404** = gibt es nicht · **GEFÄHRLICH** = hängt die API auf.
 
 ## Sicherheitsregeln
-- Mindestens 1,5–2 s zwischen Anfragen (in `TitanTV` erzwungen).
+- Abstände (in `TitanTV` erzwungen): Lesen ≥ 0,5 s, Schreibbefehle ≥ 1,5 s, Tasten ≥ 1 s (siehe Belastungstests).
 - Nach einem Timeout keine weiteren Anfragen schicken (Client-Pause 30 s → 300 s).
 - Unbekannte Endpunkte **einzeln** testen: `titan dump --only <pfad>`.
 - Gefährliche Anfragen stehen in `client.UNSAFE_REQUESTS` und werden vom Client abgelehnt.
@@ -18,7 +18,7 @@ Status: **ok** = getestet und funktioniert · **404** = gibt es nicht · **GEFÄ
 | `ambilight/power` | ok | `{"power":"On"}` |
 | `ambilight/mode` | ok | `{"current":"internal"}` |
 | `ambilight/topology` | ok | 1 Ebene, links 4 / oben 9 / rechts 4 / unten 0 = 17 Zonen |
-| `ambilight/currentconfiguration` | ok | `styleName`, `menuSetting`, `stringValue` – liefert den aktuellen Stil (über `rest_command` kam früher nichts zurück) |
+| `ambilight/currentconfiguration` | ok | `styleName`, `menuSetting`, `stringValue` – liefert den aktuellen Stil |
 | `ambilight/supportedstyles` | ok | FOLLOW_AUDIO-Algorithmen (9), FOLLOW_COLOR: MANUAL_HUE / AUTOMATIC_HUE |
 | `ambilight/lounge` | **GEFÄHRLICH** | GET → Timeout, danach antwortete die API nicht mehr (2026-11-24) |
 | `ambilight/cached`, `/measured`, `/processed` | ok, aber **immer 0** | RGB je Zone (`layer1.left/top/right`), 17 Zonen – auf dieser Firmware in jedem Stil (Rhythm, Standard) nur Nullen (2026-11-24). Im ersten Dump nur Timeout, weil `lounge` die API schon aufgehängt hatte |
@@ -31,9 +31,14 @@ Status: **ok** = getestet und funktioniert · **404** = gibt es nicht · **GEFÄ
 | `system/storage/status`, `menuitems/settings/version`, `channeldb/tv/favoriteLists/all` | 404 | |
 | `applications`, `sources` | 403 | auch mit Scope read/write/control gesperrt |
 | `menuitems/settings/structure` | ok | enthält **nur** den Ambilight-Zweig (Bild-Knoten 2 ist leer) |
+| `screenstate` | ok, aber veraltet | GET meldet immer „Off“ (auch nach POST On). `POST {"screenstate":"Off"/"On"}` → HTTP 200, aber **keine Wirkung** (Bild blieb an, beobachtet 2026-11-25) |
+| `network/devices` | ok | je Schnittstelle `mac`, `ip`, `type`, **`wake-on-lan`** (Enabled/Disabled) → MAC für WoL ohne ARP |
+| `channels`, `channels/current`, `sources/current` | 403 | |
+| `recordings/list`, `activities/browser`, `HueLamp/power` | 404 | |
 
 Zweiter Durchlauf (2026-11-24 21:02) mit gesperrtem `lounge`-GET: alle Endpunkte ohne Absturz.
 → `GET ambilight/lounge` ist mit hoher Wahrscheinlichkeit der Auslöser (danach startet der Fernseher von selbst neu).
+Dritter Durchlauf (2026-11-24 22:14, weitere Endpunkte einzeln) und vierter (2026-11-24 23:57): kein Absturz.
 
 ## Belastungstest Schreiben (2026-11-25)
 | Schreibbefehle | Abstand | Ergebnis |
@@ -47,8 +52,9 @@ Zweiter Durchlauf (2026-11-24 21:02) mit gesperrtem `lounge`-GET: alle Endpunkte
 ## Menüknoten (Ambilight-Zweig)
 | Knoten | string_id | Typ | context | aktueller Wert |
 |---|---|---|---|---|
-| 300 | MAIN_AMBILIGHT_STYLE | PARENT | – | `activenode_id` 320 |
-| 320 | MAIN_FOLLOW_VIDEO | LIST 321–325 | – | 322 |
+| 300 | MAIN_AMBILIGHT_STYLE | PARENT | ambilight_style | `activenode_id` 320 |
+| 310 | MAIN_AMBILIGHT_STYLE_OFF | PARENT | ambilight_off | (als `activenode_id` = Ambilight aus) |
+| 320 | MAIN_FOLLOW_VIDEO | LIST 321–325 | ambilight_follow_video | 322 |
 | 330 | MAIN_FOLLOW_AUDIO | LIST 331–333 | ambilight_follow_audio | 331 |
 | 340 | MAIN_FOLLOW_COLOUR | LIST 345 | ambilight_lounge_light | 345 |
 | 360 | MAIN_FOLLOW_APP | PARENT | ambilight_follow_app | – |
@@ -59,12 +65,6 @@ Zweiter Durchlauf (2026-11-24 21:02) mit gesperrtem `lounge`-GET: alle Endpunkte
 | 730 | DESC_ID_WALL_L151 | WALL_COLOR | – | – |
 | 740 | ID_SWTH_L148 | LIST | ambilight_tv_switch_off | Ausschaltverhalten (beide Einträge haben `enum_id` 1) |
 
-| `screenstate` | ok, aber veraltet | GET meldet immer „Off“ (auch nach POST On). `POST {"screenstate":"Off"/"On"}` → HTTP 200, aber **keine Wirkung** (Bild blieb an, beobachtet 2026-11-25) |
-| `network/devices` | ok | je Schnittstelle `mac`, `ip`, `type`, **`wake-on-lan`** (Enabled/Disabled) → MAC für WoL ohne ARP |
-| `channels`, `channels/current`, `sources/current` | 403 | |
-| `recordings/list`, `activities/browser`, `HueLamp/power` | 404 | |
-
-Dritter Durchlauf am 2026-11-24 um 22:14, alle Endpunkte einzeln: kein Absturz.
 
 ## `notifychange` (Long-Poll)
 Hintergrund (Recherche 2026-11-24): Laut Homey-App (PR lucasvdh/codes.lucasvdh.philips-jointspace#87) beantwortet
@@ -96,15 +96,15 @@ vom mitgeschickten Stand unterscheidet, sonst bleibt die Anfrage offen (Read-Tim
 - Leere Notification `{}` → sofortige Antwort mit dem Gesamtstand: `context`, `powerstate` (per GET 404!),
   `activities/tv`, `screenstate`, `network/devices`, `channeldb/tv`, `system/epgsource`,
   `system/storage/status`, `input/textentry`, `input/pointer`.
-- **Änderung an einem Menüknoten** (Ambilight-Helligkeit 710) → Meldung nach 0,08 s.
+- Erste Beobachtung (22:16): **Änderung an einem Menüknoten** (Helligkeit 710) → Meldung nach 0,08 s. Der saubere
+  Test oben zeigt, dass das nicht zuverlässig ist.
 - **Lautstärke** (`audio/volume`) → **keine** Meldung, die braucht weiter Polling.
 - Eine Teilmenge als Notification (z. B. nur `audio/volume`, `powerstate`) blieb ohne Antwort offen.
 - Eine offene Long-Poll-Anfrage parallel zu normalen Anfragen war unproblematisch.
 - **Unzuverlässig:** Ab etwa 22:20, nach einem abgebrochenen HA-Live-Test, kam auf `notifychange` gar keine Antwort mehr:
   weder auf `{}` (drei Versuche, je 45 s) noch auf Ambilight-Änderungen während einer offenen Anfrage (drei Versuche),
   noch auf `menuitems/settings/version: 0`. Die normale API blieb dabei gesund.
-  Mögliche Ursachen (ungeprüft): der Fernseher hält pro gekoppeltem Gerät nur eine Long-Poll-Anfrage und hängt noch an
-  einer verwaisten, oder eine andere Integration (z. B. `philips_js`, nutzt `notifychange`) beeinflusst den Dienst.
+  `philips_js` war nicht aktiv; die Erklärung unten (gestapelte, abgebrochene Anfragen) passt.
 - **Nach dem Stromtrennen (23:12):** leerer Stand sofort beantwortet. Von drei Änderungen kam aber nur eine an
   (die HA-Integration hielt parallel eigene Long-Polls offen). Mit deaktivierter Integration (23:15): leerer Stand
   ohne Antwort, keine Meldungen, dann **HTTP 503**. Die normale API blieb gesund.
@@ -130,7 +130,7 @@ Protokoll nach github.com/bedirhanyildirim/philips-titan-os-55pml9019-remote, hi
 - **Pairing** (`scripts/mqtt_probe.py pair`): `pairing/start` `{"type":"mobile"}` → Challenge + PIN am TV
   (der TV spricht von der „Titan OS App“) → `pairing/finish` mit `hex(HMAC-SHA256(PIN, challenge))` →
   Benutzername/Passwort. **Funktioniert** am 65PQS8651/12.
-- **Mit Anmeldung:** `info` und `channels/state` abonnierbar (retained), `#` nicht.
+- **Mit Anmeldung:** `info`, `channels/state` und `state/power` abonnierbar (retained), `#` nicht.
 - **`info`:** `mqttv_version` v2.12.0, `fw_version` 066.002.126.131, Modell, Markt DE, MAC-Adressen,
   `capabilities.rc.longpress`, `mqttv_topics`: `keyboard`, `rc`, `deeplink_v2`, `pairing/*`, `proxy_v2`,
   `settings`, `screenshot`, `screencast`, `screencast/keepalive`, `automation/set`.
@@ -139,8 +139,8 @@ Protokoll nach github.com/bedirhanyildirim/philips-titan-os-55pml9019-remote, hi
   Startbildschirm, `{"state":"inactive"}` in einer App oder auf einer Quelle; `channel` bisher immer `null`.
 - **`settings`:** `{}` → Code 10 „Invalid message format“; das Feld heißt `method`. `get`, `GET`, `list`, `read`,
   `query`, `status`, `describe`, `info`, `options`, `get_all`, `set`, `update` → Code 14 „Operation not
-  implemented“. Die echten Operationsnamen kennt nur die App.
-- Noch nicht untersucht: `automation/set`, `rc`, `deeplink_v2`, `screenshot`.
+  implemented“. Die echten Namen stehen in der App (`wowlan.get/set`, `tvname.set`, siehe unten).
+- Nicht untersucht: `automation/set`, `rc`, `deeplink_v2`, `screenshot`, `screencast`.
 
 ### Aus der App „Titan OS Mobile“ (`tv.titanos.eos.mobile` 1.5.3, statische Analyse 2026-11-25)
 Nur Protokoll-Erkenntnisse, kein Code übernommen.
@@ -183,7 +183,8 @@ AES-CBC mit den ersten 16 Bytes des gemeinsamen Schlüssels, die ersten 16 Bytes
 | `input/key` Medientasten | teilweise | an eine Set-top-Box (Spotify) per HDMI-CEC kommen nur `Play`/`Pause`/`PlayPause` an; `Stop`, `Next`, `Previous`, `FastForward`, `Rewind` bewirken dort nichts (2026-11-24) |
 | `input/key` `Mute` | ok | schaltet um; Zustand danach in `GET audio/volume` (`muted`) |
 | Menü 710 `data.value` | ok | Helligkeit 0–10, wirkt **sichtbar** (getestet 2026-11-24). Der Wert ist offenbar **pro Stil** gespeichert: Standard 5, Kino 10, feste Farbe 5 → nach jedem Stilwechsel neu lesen |
-| Menü 720 `data.value` | ok (gespeichert) | Sättigung −2..2, wird zurückgelesen; wirkt **sichtbar** (−2 blass, +2 kräftig; getestet 2026-11-24) |
+| Menü 720 `data.value` | ok (gespeichert) | Sättigung −2..2, wird zurückgelesen; wirkt **sichtbar** (−2 blass, +2 kräftig; getestet 2026-11-24). Ebenfalls **pro Stil** gespeichert (AI −2, Kino 0; 2026-11-26) |
+| Menü 710 im Stil AI | Besonderheit | Nach einem Wechsel weg von AI und zurück meldet der TV für AI immer Helligkeit 4, auch wenn vorher 3 gesetzt war (zweimal reproduziert 2026-11-26). Kino blieb stabil bei 10 |
 | Menü 740 | – | `menuitems/settings/current` liefert für 740 **keinen** Wert |
 
 ## Stile ↔ Namen (aus `GET ambilight/currentconfiguration`, 2026-11-24)
@@ -209,6 +210,8 @@ AI (321) und Kino (324) melden beide NATURAL. Über `currentconfiguration` lasse
 - Einschalten über die API ist damit nicht möglich. Wake-on-LAN muss aus dem **selben** Netz (192.168.178.0/24) kommen, ein gerouteter Rechner erreicht den Fernseher nicht. **Getestet: WoL funktioniert** (LAN, Magic Packet an Broadcast, Ports 7 und 9).
 
 ## Offene Fragen
-- Wirkt 710 auch auf Audio-Stile und feste Farbe? Wirkt 720 sichtbar?
+- Wirkt Helligkeit (710) auch sichtbar auf Audio-Stile und die feste Farbe?
+- Meldet MQTT `state/power` beim Ausschalten noch `standby`, bevor der Fernseher vom Netz geht?
+- Expert-Weg (`ambilight/mode` manual + `POST ambilight/cached`), den `ha-philipsjs` nutzt: auf diesem Modell nicht
+  getestet (Absturzrisiko).
 - Matter (`featuring.matter`) als zweiter Weg.
-- Meldet `notifychange` auch Ambilight-Änderungen, die per Fernbedienung gemacht werden?

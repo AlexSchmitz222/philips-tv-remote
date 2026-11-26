@@ -18,7 +18,8 @@ from pathlib import Path
 from typing import Any
 
 from .client import TitanConnectionError, TitanError, TitanTV, TitanUnsafeRequestError
-from .models import KEYS, STYLES_BY_KEY
+from .layout import MenuLayout
+from .models import KEYS
 from .pairing import pair_grant, pair_request
 
 DEFAULT_HOST = "192.168.178.78"
@@ -282,7 +283,7 @@ def main() -> None:
 
     sub.add_parser("state", help="Ambilight + Lautstärke anzeigen").set_defaults(func=cmd_state)
     st = sub.add_parser("style", help="Ambilight-Stil setzen")
-    st.add_argument("style", choices=["off", *STYLES_BY_KEY])
+    st.add_argument("style", choices=["off", *(s.key for s in MenuLayout.default().styles)])
     st.set_defaults(func=cmd_style)
     co = sub.add_parser("colour", help="feste Farbe (Farbton 0–360, Sättigung 0–100)")
     co.add_argument("hue", type=float)

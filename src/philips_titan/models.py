@@ -3,86 +3,27 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any
 
 
 @dataclass(frozen=True)
 class AmbilightStyle:
     key: str          # stable identifier used by the library / HA
     name: str         # display name (as the TV reports it where available)
-    category: int     # child of menu node 300 (activenode_id)
+    category: int     # list node selected via the style node (activenode_id)
     category_sid: str
     item: int         # enum_id inside the category list
 
 
-NODE_STYLE = 300
-SID_STYLE = "MAIN_AMBILIGHT_STYLE"
-NODE_OFF = 310
-NODE_VIDEO, SID_VIDEO = 320, "MAIN_FOLLOW_VIDEO"
-NODE_AUDIO, SID_AUDIO = 330, "MAIN_FOLLOW_AUDIO"
-NODE_COLOUR, SID_COLOUR = 340, "MAIN_FOLLOW_COLOUR"
-NODE_BRIGHTNESS, SID_BRIGHTNESS = 710, "PC_ID_BRIGH_L12"  # 0..10, visibly works
-NODE_SATURATION, SID_SATURATION = 720, "ID_AMB_SAT"       # -2..2, effect unverified
-
-BRIGHTNESS_MAX = 10
-SATURATION_MIN, SATURATION_MAX = -2, 2
-
-STYLES: tuple[AmbilightStyle, ...] = (
-    AmbilightStyle("ai", "AI", NODE_VIDEO, SID_VIDEO, 321),
-    AmbilightStyle("standard", "Standard", NODE_VIDEO, SID_VIDEO, 322),
-    AmbilightStyle("sports", "Sports", NODE_VIDEO, SID_VIDEO, 323),
-    AmbilightStyle("cinema", "Cinema", NODE_VIDEO, SID_VIDEO, 324),
-    AmbilightStyle("game", "Game", NODE_VIDEO, SID_VIDEO, 325),
-    AmbilightStyle("lumina", "Lumina", NODE_AUDIO, SID_AUDIO, 331),
-    AmbilightStyle("party", "Party", NODE_AUDIO, SID_AUDIO, 332),
-    AmbilightStyle("rhythm", "Rhythm", NODE_AUDIO, SID_AUDIO, 333),
-    AmbilightStyle("fixed_colour", "Fixed colour", NODE_COLOUR, SID_COLOUR, 345),
-)
-STYLES_BY_KEY = {s.key: s for s in STYLES}
-STYLES_BY_ITEM = {s.item: s for s in STYLES}
-FIXED_COLOUR = STYLES_BY_KEY["fixed_colour"]
-
-# Read in one menuitems/settings/current request
-STATE_NODES = [NODE_STYLE, NODE_VIDEO, NODE_AUDIO, NODE_COLOUR, NODE_BRIGHTNESS, NODE_SATURATION]
+# Menu node ids / items are detected per TV, see layout.MenuLayout
+# (MenuLayout.default() is the layout verified on the 65PQS8651/12).
 
 
 @dataclass
 class AmbilightState:
     on: bool
     style: AmbilightStyle | None   # None when off or unknown
-    brightness: int | None         # 0..10 (menu node 710)
-    saturation: int | None         # -2..2 (menu node 720)
-
-
-@dataclass
-class AmbilightColors:
-    """Colours the LEDs currently show (GET ambilight/processed)."""
-
-    average: tuple[int, int, int] | None          # over all LEDs
-    sides: dict[str, tuple[int, int, int]]        # per side (left/top/right)
-    leds: int
-
-    @classmethod
-    def from_processed(cls, data: dict[str, Any]) -> "AmbilightColors":
-        all_px: list[tuple[int, int, int]] = []
-        sides: dict[str, tuple[int, int, int]] = {}
-        for layer in (data or {}).values():
-            if not isinstance(layer, dict):
-                continue
-            for side, pixels in layer.items():
-                px = [
-                    (p["r"], p["g"], p["b"])
-                    for p in (pixels or {}).values()
-                    if isinstance(p, dict) and {"r", "g", "b"} <= p.keys()
-                ]
-                if px:
-                    sides[side] = _mean(px)
-                    all_px += px
-        return cls(average=_mean(all_px) if all_px else None, sides=sides, leds=len(all_px))
-
-
-def _mean(px: list[tuple[int, int, int]]) -> tuple[int, int, int]:
-    return tuple(round(sum(p[i] for p in px) / len(px)) for i in range(3))  # type: ignore[return-value]
+    brightness: int | None         # menu brightness (0..10 on the 65PQS8651)
+    saturation: int | None         # menu saturation (-2..2 on the 65PQS8651)
 
 
 @dataclass

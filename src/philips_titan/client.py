@@ -21,7 +21,7 @@ import httpx
 
 from . import models as m
 from .layout import MenuLayout
-from .models import AmbilightColors, AmbilightState, Volume
+from .models import AmbilightState, Volume
 
 DEFAULT_PORT = 1926
 API_VERSION = 6
@@ -119,7 +119,7 @@ class TitanTV:
         if self._own_client:
             await self._client.aclose()
 
-    async def __aenter__(self) -> "TitanTV":
+    async def __aenter__(self) -> TitanTV:
         return self
 
     async def __aexit__(self, *exc: object) -> None:
@@ -268,14 +268,6 @@ class TitanTV:
             brightness=(values.get(lay.brightness.id) or {}).get("value") if lay.brightness else None,
             saturation=(values.get(lay.saturation.id) or {}).get("value") if lay.saturation else None,
         )
-
-    async def ambilight_colors(self) -> AmbilightColors:
-        """LED colours (GET ambilight/processed – safe, unlike lounge).
-
-        On the 65PQS8651/12 (fw 066.002.126.131) processed, measured and cached
-        return all zeros in every style, so this is not useful there.
-        """
-        return AmbilightColors.from_processed(await self.get("ambilight/processed") or {})
 
     async def ambilight_off(self) -> None:
         lay = self.layout

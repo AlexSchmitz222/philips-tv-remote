@@ -61,9 +61,9 @@ class AmbilightLight(TitanEntity, LightEntity, RestoreEntity):
     async def async_added_to_hass(self) -> None:
         await super().async_added_to_hass()
         # The lounge colour cannot be read from the TV – restore the last one.
-        if self.coordinator.lounge_hs is None and (last := await self.async_get_last_state()):
-            if hs := last.attributes.get(ATTR_HS_COLOR):
-                self.coordinator.lounge_hs = (float(hs[0]), float(hs[1]))
+        last = await self.async_get_last_state() if self.coordinator.lounge_hs is None else None
+        if last and (hs := last.attributes.get(ATTR_HS_COLOR)):
+            self.coordinator.lounge_hs = (float(hs[0]), float(hs[1]))
 
     @property
     def _layout(self) -> MenuLayout:
