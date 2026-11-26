@@ -220,7 +220,8 @@ class TitanTV:
         ))
 
     async def menu_update(self, node_id: int, string_id: str, data: dict[str, Any]) -> Any:
-        """Write a menu node. Titan OS requires ``version: 1``."""
+        """Write a menu node. Sent with ``version: 1`` and the full value fields
+        (known to work); the TV also accepts the bare form (2026-11-26)."""
         return await self.post(
             "menuitems/settings/update",
             {

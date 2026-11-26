@@ -173,7 +173,7 @@ AES-CBC mit den ersten 16 Bytes des gemeinsamen Schlüssels, die ersten 16 Bytes
 | Pfad | Status | Bemerkung |
 |---|---|---|
 | `pair/request`, `pair/grant` | ok | Signatur = base64(HMAC-SHA1(shared_key, timestamp+pin)), Feld `auth_appId` |
-| `menuitems/settings/update` | ok | braucht `"version": 1` |
+| `menuitems/settings/update` | ok | `"version": 1` ist **nicht** nötig: `{"values":[{"value":{"Nodeid":320,"data":{"selected_item":323}}}]}` (Form wie in `ha-philipsjs`, ohne `string_id`) wirkt ebenso (geprüft 2026-11-26). Die ursprüngliche Annahme „nur mit version 1“ war falsch oder gilt nicht mehr |
 | `menuitems/settings/current` | ok | |
 | `ambilight/lounge` | ok | feste Farbe (HSB 0–255), wirkt nur bei Stil „Feste Farbe“ |
 | `ambilight/currentconfiguration` | wirkt nicht | der Fernseher setzt sofort den Menüwert wieder durch |
